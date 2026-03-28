@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: bookvault-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: FINE_RATE_PER_DAY
+        value: "2.00"
+      - key: BORROW_DURATION_DAYS
+        value: "14"
+      - key: RESERVATION_EXPIRY_HOURS
+        value: "48"

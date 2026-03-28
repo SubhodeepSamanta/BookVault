@@ -111,7 +111,7 @@ const Profile = () => {
                       </div>
                       
                       <div>
-                         <div className="font-mono text-xl text-cream font-bold tracking-[0.15em] mb-1">{user.cardId}</div>
+                         <div className="font-mono text-xl text-cream font-bold tracking-[0.15em] mb-1">{user.card_id}</div>
                          <div className="text-[11px] font-sans font-medium text-parchment/50 uppercase tracking-widest">{user.name}</div>
                       </div>
                       
@@ -182,7 +182,7 @@ const Profile = () => {
                          <label className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-ink-muted ml-0.5">Library ID</label>
                          <input 
                            type="text"
-                           value={user.cardId}
+                           value={user.card_id}
                            disabled
                            className="w-full bg-parchment/50 border border-border-warm rounded-none px-4 py-3.5 text-sm font-sans font-mono font-bold text-ink-muted cursor-not-allowed"
                          />

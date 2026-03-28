@@ -91,11 +91,11 @@ const AdminLayout = ({ children, title }) => {
         <div className="p-6 border-t border-parchment/10 bg-black/20">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-9 h-9 bg-brown text-cream flex items-center justify-center rounded-full font-serif text-sm font-bold border border-parchment/20">
-              SM
+              {user?.name?.split(' ').map(n => n[0]).join('') || 'AD'}
             </div>
             <div className="min-w-0">
-              <div className="text-[13px] font-sans font-bold text-parchment/80 truncate leading-tight">Dr. Sarah Malik</div>
-              <div className="text-[10px] font-sans text-parchment/40 truncate">Administrator</div>
+              <div className="text-[13px] font-sans font-bold text-parchment/80 truncate leading-tight">{user?.name || 'Administrator'}</div>
+              <div className="text-[10px] font-sans text-parchment/40 truncate">{user?.role === 'admin' ? 'Institutional Admin' : 'Staff'}</div>
             </div>
           </div>
           <button 

@@ -29,14 +29,14 @@ function App() {
             <Toast />
 
             <Routes>
-              {/* ADMIN PORTAL (No Global Navbar) */}
-              <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-              <Route element={<AdminLayout />}>
-                <Route path="/admin/dashboard" element={<Dashboard />} />
-                <Route path="/admin/books" element={<BooksManager />} />
-                <Route path="/admin/users" element={<UsersAndBorrows />} />
-                <Route path="/admin/pickups" element={<PickupsAndFines />} />
-                <Route path="/admin/content" element={<Content />} />
+              {/* ADMIN PORTAL */}
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="books" element={<BooksManager />} />
+                <Route path="users" element={<UsersAndBorrows />} />
+                <Route path="pickups" element={<PickupsAndFines />} />
+                <Route path="content" element={<Content />} />
               </Route>
 
               {/* PUBLIC SITE (With Global Navbar) */}

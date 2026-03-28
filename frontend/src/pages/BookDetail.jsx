@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -12,9 +12,10 @@ import {
   CheckCircle,
   Clock,
   Layout,
-  TrendingUp
+  TrendingUp,
+  Loader2
 } from 'lucide-react';
-import { books } from '../data/books';
+import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import BookCover from '../components/BookCover';
@@ -27,11 +28,57 @@ const BookDetail = () => {
   const { id } = useParams();
   const { user, openAuthModal } = useAuth();
   const { addToast } = useToast();
-  const [activeTab, setActiveTab] = useState('overview');
-  const [readingProgress, setReadingProgress] = useState(47);
-  const [reviewSubmitted, setReviewSubmitted] = useState(false);
   
-  const book = useMemo(() => books.find(b => b.id === parseInt(id)), [id]);
+  const [book, setBook] = useState(null);
+  const [similarBooks, setSimilarBooks] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [avgRating, setAvgRating] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
+  
+  const [readingProgress, setReadingProgress] = useState(0);
+  const [revRating, setRevRating] = useState(5);
+  const [revComment, setRevComment] = useState('');
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const fetchBookData = async () => {
+      setLoading(true);
+      try {
+        const [bookRes, reviewsRes, similarRes, progressRes] = await Promise.all([
+          api.get(`/books/${id}`),
+          api.get(`/reviews/book/${id}`),
+          api.get(`/books?limit=4`), // Simple similar books for now
+          user ? api.get('/progress/my') : Promise.resolve({ data: { progress: [] } })
+        ]);
+
+        setBook(bookRes.data.book);
+        setReviews(reviewsRes.data.reviews);
+        setAvgRating(reviewsRes.data.avg_rating);
+        setSimilarBooks(similarRes.data.books.filter(b => b.id !== parseInt(id)).slice(0, 3));
+        
+        if (user) {
+          const myProg = progressRes.data.progress.find(p => p.book_id === parseInt(id));
+          if (myProg) setReadingProgress(myProg.percent);
+        }
+      } catch (err) {
+        console.error('Error fetching book details:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchBookData();
+  }, [id, user]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-cream flex flex-col items-center justify-center">
+        <Loader2 className="animate-spin text-brown mb-4" size={40} />
+        <span className="text-ink-muted font-sans uppercase tracking-widest text-xs">Retrieving Volume...</span>
+      </div>
+    );
+  }
 
   if (!book) {
     return (
@@ -44,23 +91,68 @@ const BookDetail = () => {
     );
   }
 
-  const similarBooks = books.filter(b => b.genre === book.genre && b.id !== book.id).slice(0, 3);
   const isAvailable = book.available_copies > 0;
 
-  const handleBorrow = () => {
+  const handleBorrow = async () => {
     if (!user) {
       openAuthModal('login');
-    } else {
+      return;
+    }
+    
+    try {
+      await api.post('/borrows', { bookId: book.id });
       addToast(`Successfully borrowed "${book.title}"!`, 'success');
+      // Refresh book data
+      const res = await api.get(`/books/${id}`);
+      setBook(res.data.book);
+    } catch (err) {
+      addToast(err.response?.data?.error || 'Failed to borrow book', 'error');
     }
   };
 
-  const reviews = [
-    { id: 1, user: 'Julian M.', date: 'Oct 12, 2023', rating: 5, text: 'An absolute masterpiece of American literature. The prose is beautiful and the themes are just as relevant today as they were in 1925.' },
-    { id: 2, user: 'Sarah K.', date: 'Dec 02, 2023', rating: 4, text: 'Great read for my literature class. Gatsby is such a fascinating, tragic character. The ending always hits hard.' },
-    { id: 3, user: 'Academic Reader', date: 'Jan 15, 2024', rating: 5, text: 'The definitive edition for researchers. Excellent notes and the cover design is quite stunning.' },
-    { id: 4, user: 'Liam W.', date: 'Mar 10, 2024', rating: 4, text: 'A classic for a reason. Quick read but stays with you for a long time.' },
-  ];
+  const handleJoinWaitlist = async () => {
+    if (!user) {
+      openAuthModal('login');
+      return;
+    }
+    try {
+      await api.post('/reservations', { bookId: book.id });
+      addToast(`Joined the waitlist for "${book.title}"!`, 'success');
+    } catch (err) {
+      addToast(err.response?.data?.error || 'Failed to join waitlist', 'error');
+    }
+  };
+
+  const handleSaveProgress = async () => {
+    try {
+      await api.post('/progress', { bookId: book.id, percent: readingProgress });
+      addToast('Reading progress updated!', 'success');
+    } catch (err) {
+      addToast(err.response?.data?.error || 'Failed to update progress', 'error');
+    }
+  };
+
+  const handleReviewSubmit = async () => {
+    if (!revComment.trim()) return;
+    setSubmitting(true);
+    try {
+      await api.post('/reviews', { 
+        bookId: book.id, 
+        rating: revRating, 
+        comment: revComment 
+      });
+      setReviewSubmitted(true);
+      addToast('Review submitted!', 'success');
+      // Refresh reviews
+      const res = await api.get(`/reviews/book/${id}`);
+      setReviews(res.data.reviews);
+      setAvgRating(res.data.avg_rating);
+    } catch (err) {
+      addToast(err.response?.data?.error || 'Failed to submit review', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="bg-cream min-h-screen">
@@ -92,7 +184,7 @@ const BookDetail = () => {
                 </div>
                 <div className="flex justify-between items-end mb-2">
                   <span className="text-[11px] font-sans text-ink-muted">
-                    {book.available_copies} of {book.total_copies} copies currently available
+                    {book.available_copies} of {book.total_copies} units available
                   </span>
                   <span className="text-[11px] font-sans font-bold text-ink">
                     {Math.round((book.available_copies / book.total_copies) * 100)}%
@@ -105,7 +197,10 @@ const BookDetail = () => {
                   />
                 </div>
                 {!isAvailable && (
-                  <button className="w-full mt-4 py-2 text-xs font-sans font-bold text-brown uppercase tracking-widest border border-brown/30 hover:bg-brown/5 transition-colors">
+                  <button 
+                    onClick={handleJoinWaitlist}
+                    className="w-full mt-4 py-2 text-xs font-sans font-bold text-brown uppercase tracking-widest border border-brown/30 hover:bg-brown/5 transition-colors"
+                  >
                     Join the waitlist
                   </button>
                 )}
@@ -134,10 +229,6 @@ const BookDetail = () => {
                     Download Free PDF
                   </a>
                 )}
-                
-                <button className="text-ink-muted hover:text-brown transition-colors text-xs font-sans underline underline-offset-4 text-center mt-2">
-                  Request academic extension
-                </button>
               </div>
 
               {user && (
@@ -147,7 +238,7 @@ const BookDetail = () => {
                     <span className="text-[11px] font-sans uppercase tracking-widest text-ink-muted font-bold">Your Library Card</span>
                   </div>
                   <div className="font-mono text-sm font-bold text-ink tracking-widest">
-                    {user.cardId}
+                    {user.card_id}
                   </div>
                 </div>
               )}
@@ -171,7 +262,7 @@ const BookDetail = () => {
             <div className="flex flex-wrap items-center gap-y-4 gap-x-8 mt-8">
               <div className="flex items-center gap-2 text-ink-muted">
                 <Calendar size={16} className="text-gold" />
-                <span className="text-sm font-sans">{book.published_year > 0 ? book.published_year : `${Math.abs(book.published_year)} BC`}</span>
+                <span className="text-sm font-sans">{book.published_year}</span>
               </div>
               <div className="flex items-center gap-2 text-ink-muted">
                 <BookIcon size={16} className="text-gold" />
@@ -183,18 +274,18 @@ const BookDetail = () => {
               </div>
               <div className="flex items-center gap-2 text-ink-muted">
                 <Barcode size={16} className="text-gold" />
-                <span className="text-sm font-sans">ISBN {book.isbn.split('-').slice(-2).join('-')}</span>
+                <span className="text-sm font-sans">ISBN {book.isbn}</span>
               </div>
             </div>
 
             <div className="flex items-center gap-4 mt-8 pt-8 border-t border-border-warm">
                <div className="flex items-center gap-3">
-                  <StarRating rating={book.rating} size={22} />
-                  <span className="font-serif text-2xl font-bold text-ink">{book.rating}</span>
+                  <StarRating rating={avgRating} size={22} />
+                  <span className="font-serif text-2xl font-bold text-ink">{avgRating}</span>
                </div>
                <div className="h-6 w-px bg-border-warm" />
                <div className="text-sm font-sans text-ink-muted">
-                 Based on <button className="text-brown font-bold underline decoration-brown/30 hover:decoration-brown transition-all">{book.rating_count} verifying reviews</button>
+                 Based on <span className="text-brown font-bold">{reviews.length} verifying reviews</span>
                </div>
             </div>
           </div>
@@ -222,8 +313,8 @@ const BookDetail = () => {
             <div className="py-8 min-h-[400px]">
               {activeTab === 'overview' && (
                 <div className="animate-in fade-in duration-300">
-                  <p className="font-serif text-lg leading-relaxed text-ink-soft mb-12">
-                     {book.description} Additional context: This volume remains a cornerstone of academic inquiry and literary criticism. Our library provides access to several critical editions and peer-reviewed journals discussing the implications of this work in modern sociology.
+                  <p className="font-serif text-lg leading-relaxed text-ink-soft mb-12 text-justify">
+                     {book.description}
                   </p>
 
                   <h3 className="text-[11px] font-sans font-bold uppercase tracking-[0.25em] text-ink-muted mb-6 border-b border-border-warm pb-3">Technical Specifications</h3>
@@ -261,28 +352,26 @@ const BookDetail = () => {
                   {/* Rating breakdown */}
                   <div className="bg-parchment border border-border-warm p-8 mb-10 flex flex-col md:flex-row gap-10 items-center">
                     <div className="text-center md:text-left">
-                       <div className="font-serif text-7xl font-bold text-ink leading-none">{book.rating}</div>
+                       <div className="font-serif text-7xl font-bold text-ink leading-none">{avgRating}</div>
                        <div className="text-sm text-ink-muted mt-2">out of 5 stars</div>
-                       <div className="mt-4"><StarRating rating={book.rating} size={18} /></div>
-                       <div className="text-[11px] font-sans uppercase tracking-widest text-ink-muted mt-2 font-bold">{book.rating_count} reviews</div>
+                       <div className="mt-4"><StarRating rating={avgRating} size={18} /></div>
+                       <div className="text-[11px] font-sans uppercase tracking-widest text-ink-muted mt-2 font-bold">{reviews.length} reviews</div>
                     </div>
                     
                     <div className="flex-1 w-full space-y-3">
-                      {[ 
-                        { s: 5, w: '68%' }, 
-                        { s: 4, w: '19%' }, 
-                        { s: 3, w: '8%' }, 
-                        { s: 2, w: '3%' }, 
-                        { s: 1, w: '2%' } 
-                      ].map((bar) => (
-                        <div key={bar.s} className="flex items-center gap-4">
-                          <span className="text-xs font-sans text-ink-muted w-4">{bar.s}★</span>
-                          <div className="flex-1 h-2 bg-border-warm">
-                            <div className="h-full bg-gold" style={{ width: bar.w }} />
+                      {[5, 4, 3, 2, 1].map((s) => {
+                        const count = reviews.filter(r => r.rating === s).length;
+                        const pct = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
+                        return (
+                          <div key={s} className="flex items-center gap-4">
+                            <span className="text-xs font-sans text-ink-muted w-4">{s}★</span>
+                            <div className="flex-1 h-2 bg-border-warm">
+                              <div className="h-full bg-gold" style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className="text-[10px] font-sans text-ink-muted w-10 text-right">{Math.round(pct)}%</span>
                           </div>
-                          <span className="text-[10px] font-sans text-ink-muted w-10 text-right">{bar.w}</span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -291,21 +380,26 @@ const BookDetail = () => {
                     {reviews.map((review) => (
                       <div key={review.id} className="py-8 border-b border-border-warm last:border-none">
                         <div className="flex items-center gap-4 mb-4">
-                          <div className="w-10 h-10 rounded-full bg-brown flex items-center justify-center text-cream font-bold text-sm">
-                            {review.user.split(' ').map(n => n[0]).join('')}
+                          <div className="w-10 h-10 rounded-full bg-brown flex items-center justify-center text-cream font-bold text-xs">
+                            {review.User?.name?.split(' ').map(n => n[0]).join('')}
                           </div>
                           <div>
-                            <div className="text-sm font-sans font-bold text-ink">{review.user}</div>
-                            <div className="text-[11px] font-sans text-ink-muted">{review.date}</div>
+                            <div className="text-sm font-sans font-bold text-ink">{review.User?.name}</div>
+                            <div className="text-[11px] font-sans text-ink-muted">{new Date(review.created_at).toLocaleDateString()}</div>
                           </div>
                           <div className="ml-auto bg-green-50 text-green-700 text-[9px] font-sans font-bold uppercase tracking-widest px-2 py-0.5 border border-green-100 flex items-center gap-1">
                             <CheckCircle size={10} /> Verified Borrower
                           </div>
                         </div>
                         <div className="mb-3"><StarRating rating={review.rating} size={12} /></div>
-                        <p className="font-sans text-sm text-ink-soft leading-relaxed">{review.text}</p>
+                        <p className="font-sans text-sm text-ink-soft leading-relaxed">{review.comment}</p>
                       </div>
                     ))}
+                    {reviews.length === 0 && (
+                      <div className="py-12 text-center text-ink-muted italic font-sans text-sm">
+                        No reviews yet. Be the first to share your perspective.
+                      </div>
+                    )}
                   </div>
 
                   {/* Write a review */}
@@ -329,6 +423,7 @@ const BookDetail = () => {
                              <div className="flex justify-center mb-4 text-gold"><CheckCircle size={48} /></div>
                              <h4 className="font-serif text-2xl font-bold text-ink mb-2">Review submitted</h4>
                              <p className="text-sm text-ink-muted">Thank you for sharing your academic perspective with the community.</p>
+                             <button onClick={() => setReviewSubmitted(false)} className="mt-6 text-sm text-brown font-bold tracking-widest uppercase underline">Write another</button>
                           </div>
                         ) : (
                           <>
@@ -336,17 +431,30 @@ const BookDetail = () => {
                             <div className="space-y-4">
                               <div>
                                 <p className="text-xs text-ink-muted font-sans mb-3">Rate your reading experience</p>
-                                <StarPicker size={24} />
+                                <div className="flex gap-1">
+                                  {[1, 2, 3, 4, 5].map(s => (
+                                    <button 
+                                      key={s} 
+                                      onClick={() => setRevRating(s)}
+                                      className={`${revRating >= s ? 'text-gold' : 'text-border-deep'} hover:scale-110 transition-transform`}
+                                    >
+                                      ★
+                                    </button>
+                                  ))}
+                                </div>
                               </div>
                               <textarea 
+                                value={revComment}
+                                onChange={(e) => setRevComment(e.target.value)}
                                 className="w-full bg-cream border border-border-warm p-6 text-sm font-sans text-ink focus:outline-none focus:border-brown min-h-[160px] placeholder:italic"
                                 placeholder="Share your academic or personal thoughts on this volume..."
                               />
                               <button 
-                                onClick={() => setReviewSubmitted(true)}
-                                className="bg-espresso text-cream px-10 py-3.5 font-sans font-bold uppercase tracking-widest text-xs hover:bg-espresso-light transition-all"
+                                onClick={handleReviewSubmit}
+                                disabled={submitting}
+                                className="bg-espresso text-cream px-10 py-3.5 font-sans font-bold uppercase tracking-widest text-xs hover:bg-espresso-light transition-all disabled:opacity-50"
                               >
-                                Submit Review
+                                {submitting ? 'Submitting...' : 'Submit Review'}
                               </button>
                             </div>
                           </>
@@ -408,37 +516,13 @@ const BookDetail = () => {
                                 </div>
                                 <div className="flex items-end">
                                   <button 
-                                    onClick={() => addToast('Reading progress updated successfully!', 'success')}
+                                    onClick={handleSaveProgress}
                                     className="h-[46px] bg-espresso text-cream px-10 font-sans font-bold uppercase tracking-widest text-xs hover:bg-espresso-light transition-all whitespace-nowrap"
                                   >
                                     Save Progress
                                   </button>
                                 </div>
                               </div>
-                            </div>
-                         </div>
-
-                         <div className="pt-8 border-t border-border-warm grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="space-y-1">
-                               <div className="flex items-center gap-2 text-ink-muted mb-1">
-                                 <Calendar size={12} />
-                                 <span className="text-[10px] font-sans font-bold uppercase tracking-widest">Started Reading</span>
-                               </div>
-                               <div className="text-sm font-sans text-ink">October 14, 2023</div>
-                            </div>
-                            <div className="space-y-1">
-                               <div className="flex items-center gap-2 text-ink-muted mb-1">
-                                 <Clock size={12} />
-                                 <span className="text-[10px] font-sans font-bold uppercase tracking-widest">Last Updated</span>
-                               </div>
-                               <div className="text-sm font-sans text-ink">2 days ago</div>
-                            </div>
-                            <div className="space-y-1">
-                               <div className="flex items-center gap-2 text-ink-muted mb-1">
-                                 <TrendingUp size={12} className="text-gold" />
-                                 <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-gold">Est. Completion</span>
-                               </div>
-                               <div className="text-sm font-sans text-ink font-bold">April 02, 2024</div>
                             </div>
                          </div>
                       </div>

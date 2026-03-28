@@ -1,97 +1,101 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   CreditCard, 
   BookOpen, 
   AlertCircle, 
   IndianRupee, 
-  CalendarDays,
   Search,
   CheckCircle,
-  Archive,
-  ChevronRight
+  Loader2
 } from 'lucide-react';
+import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import BookCover from '../components/BookCover';
 import ProgressRing from '../components/ProgressRing';
-import { books } from '../data/books';
-
-const mockBorrows = [
-  {
-    id: 1, bookId: 1, status: 'active',
-    borrowedAt: '2024-11-20', dueDate: '2024-12-04',
-    returnedAt: null
-  },
-  {
-    id: 2, bookId: 3, status: 'overdue',
-    borrowedAt: '2024-11-01', dueDate: '2024-11-15',
-    returnedAt: null
-  },
-  {
-    id: 3, bookId: 5, status: 'returned',
-    borrowedAt: '2024-10-10', dueDate: '2024-10-24',
-    returnedAt: '2024-10-22'
-  },
-  {
-    id: 4, bookId: 7, status: 'returned',
-    borrowedAt: '2024-09-15', dueDate: '2024-09-29',
-    returnedAt: '2024-09-28'
-  },
-  {
-    id: 5, bookId: 2, status: 'active',
-    borrowedAt: '2024-11-25', dueDate: '2024-12-09',
-    returnedAt: null
-  },
-];
-
-const mockProgress = {
-  1: { percent: 62, pagesRead: 112 },
-  3: { percent: 28, pagesRead: 94 },
-  5: { percent: 100, pagesRead: 320 },
-  7: { percent: 45, pagesRead: 180 },
-  2: { percent: 5, pagesRead: 18 },
-};
 
 const MyLibrary = () => {
   const { user, openAuthModal } = useAuth();
   const navigate = useNavigate();
   const { addToast } = useToast();
+  
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('active loans');
-  const [loanFilter, setLoanFilter] = useState('All');
+  const [borrows, setBorrows] = useState([]);
+  const [progressData, setProgressData] = useState([]);
+  const [finesTotal, setFinesTotal] = useState(0);
   const [historySearch, setHistorySearch] = useState('');
+  const [loanFilter, setLoanFilter] = useState('All');
 
   useEffect(() => {
     if (!user) { 
       navigate('/'); 
       openAuthModal('login'); 
+      return;
     }
+
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [borrowsRes, progressRes, finesRes] = await Promise.all([
+          api.get('/borrows/my'),
+          api.get('/progress/my'),
+          api.get('/fines/my')
+        ]);
+        
+        setBorrows(borrowsRes.data.borrows);
+        setProgressData(progressRes.data.progress);
+        
+        const total = finesRes.data.fines.reduce((sum, f) => !f.paid ? sum + parseFloat(f.amount) : sum, 0);
+        setFinesTotal(total);
+      } catch (err) {
+        console.error('Error fetching library data:', err);
+        addToast('Failed to load library data', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, [user, navigate, openAuthModal]);
 
-  if (!user) return null;
+  if (!user || loading) {
+    return (
+      <div className="min-h-screen bg-cream flex flex-col items-center justify-center">
+        <Loader2 className="animate-spin text-brown mb-4" size={40} />
+        <span className="text-ink-muted font-sans uppercase tracking-widest text-xs">Opening Personal Vault...</span>
+      </div>
+    );
+  }
 
-  const activeLoans = mockBorrows.filter(b => b.status === 'active' || b.status === 'overdue');
+  const activeLoans = borrows.filter(b => !b.returned_at);
   const filteredLoans = activeLoans.filter(loan => {
     if (loanFilter === 'All') return true;
     return loan.status.toLowerCase() === loanFilter.toLowerCase();
   });
 
-  const historyLoans = mockBorrows.filter(b => 
-    books.find(bk => bk.id === b.bookId).title.toLowerCase().includes(historySearch.toLowerCase())
+  const historyLoans = borrows.filter(b => 
+    b.Book?.title.toLowerCase().includes(historySearch.toLowerCase())
   );
 
-  const stats = {
-    active: activeLoans.filter(l => l.status === 'active').length,
-    overdue: activeLoans.filter(l => l.status === 'overdue').length,
-    fines: "9.50"
-  };
-
   const calculateDaysRemaining = (dueDate) => {
-    const today = new Date('2024-12-01'); // Mocking "today" for consistent display with mock data
+    const today = new Date();
     const due = new Date(dueDate);
     const diffTime = due - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
+  };
+
+  const handleReturn = async (borrowId) => {
+    try {
+      await api.put(`/borrows/${borrowId}/return`);
+      addToast('Book returned successfully', 'success');
+      // Refresh data
+      const res = await api.get('/borrows/my');
+      setBorrows(res.data.borrows);
+    } catch (err) {
+      addToast(err.response?.data?.error || 'Failed to return book', 'error');
+    }
   };
 
   return (
@@ -111,27 +115,26 @@ const MyLibrary = () => {
             <div className="mt-6 flex flex-wrap gap-6">
               <div className="bg-parchment/10 border border-parchment/20 rounded-none px-4 py-2 flex items-center gap-2">
                 <BookOpen size={14} className="text-parchment/70" />
-                <span className="text-[12px] font-sans text-parchment/70 font-medium">{stats.active} Active Loans</span>
+                <span className="text-[12px] font-sans text-parchment/70 font-medium">{activeLoans.length} Active Loans</span>
               </div>
               <div className="bg-parchment/10 border border-red-400/40 rounded-none px-4 py-2 flex items-center gap-2 text-red-300">
                 <AlertCircle size={14} />
-                <span className="text-[12px] font-sans font-medium">{stats.overdue} Overdue</span>
+                <span className="text-[12px] font-sans font-medium">{activeLoans.filter(l => l.status === 'overdue').length} Overdue</span>
               </div>
               <div className="bg-parchment/10 border border-parchment/20 rounded-none px-4 py-2 flex items-center gap-2">
                 <IndianRupee size={14} className="text-parchment/70" />
-                <span className="text-[12px] font-sans text-parchment/70 font-medium">₹{stats.fines} Fines Due</span>
+                <span className="text-[12px] font-sans text-parchment/70 font-medium">₹{finesTotal} Fines Due</span>
               </div>
             </div>
           </div>
 
-          {/* Library Card Badge */}
           <div className="hidden lg:block bg-parchment/10 border border-parchment/20 rounded-none px-6 py-4 absolute right-12 top-1/2 -translate-y-1/2">
              <div className="flex items-center gap-2 mb-2">
                 <CreditCard size={14} className="text-gold" />
                 <span className="text-[10px] font-sans uppercase tracking-[0.2em] text-parchment/50 font-bold">Library Card</span>
              </div>
              <div className="font-mono text-xl text-cream font-bold tracking-[0.15em] mb-1">
-                {user.cardId}
+                {user.card_id}
              </div>
              <div className="text-[11px] font-sans text-parchment/40 font-medium uppercase tracking-wider">
                 {user.name}
@@ -163,7 +166,6 @@ const MyLibrary = () => {
       <main className="max-w-5xl mx-auto px-6 py-8 pb-20">
         {activeTab === 'active loans' && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {/* Filter Row */}
             <div className="flex gap-2 mb-8">
               {['All', 'Active', 'Overdue'].map(filter => (
                 <button
@@ -184,9 +186,9 @@ const MyLibrary = () => {
             {filteredLoans.length > 0 ? (
               <div className="space-y-4">
                 {filteredLoans.map(loan => {
-                  const book = books.find(b => b.id === loan.bookId);
-                  const progress = mockProgress[loan.bookId] || { percent: 0, pagesRead: 0 };
-                  const daysRemaining = calculateDaysRemaining(loan.dueDate);
+                  const book = loan.Book;
+                  const progress = progressData.find(p => p.book_id === loan.book_id) || { percent: 0 };
+                  const daysRemaining = calculateDaysRemaining(loan.due_date);
                   const isOverdue = daysRemaining < 0;
                   const isDueSoon = daysRemaining >= 0 && daysRemaining <= 3;
 
@@ -205,12 +207,12 @@ const MyLibrary = () => {
                          <div className="flex flex-wrap gap-x-8 gap-y-2 mb-4">
                             <div className="flex items-center gap-2">
                                <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted">Borrowed</span>
-                               <span className="text-xs font-sans text-ink">{loan.borrowedAt}</span>
+                               <span className="text-xs font-sans text-ink">{new Date(loan.borrowed_at).toLocaleDateString()}</span>
                             </div>
                             <div className="flex items-center gap-2">
                                <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted">Due</span>
                                <span className={`text-xs font-sans font-bold ${isOverdue ? 'text-red-600' : isDueSoon ? 'text-amber-600' : 'text-ink'}`}>
-                                 {loan.dueDate}
+                                 {new Date(loan.due_date).toLocaleDateString()}
                                  {isOverdue && <span className="text-red-500 font-normal ml-1">({Math.abs(daysRemaining)} days overdue)</span>}
                                  {isDueSoon && <span className="text-amber-500 font-normal ml-1">(due soon)</span>}
                                </span>
@@ -246,7 +248,10 @@ const MyLibrary = () => {
                          </div>
 
                          <div className="w-full space-y-1">
-                            <button className="w-full bg-espresso text-cream text-[10px] font-sans font-bold uppercase tracking-wider py-2 hover:bg-espresso-light transition-colors">
+                            <button 
+                              onClick={() => handleReturn(loan.id)}
+                              className="w-full bg-espresso text-cream text-[10px] font-sans font-bold uppercase tracking-wider py-2 hover:bg-espresso-light transition-colors"
+                            >
                                Return Book
                             </button>
                             {isOverdue && (
@@ -300,14 +305,11 @@ const MyLibrary = () => {
                          <th className="py-4 px-6 font-bold">Due Date</th>
                          <th className="py-4 px-6 font-bold">Returned</th>
                          <th className="py-4 px-6 font-bold">Status</th>
-                         <th className="py-4 px-6 font-bold">Fine</th>
                       </tr>
                    </thead>
                    <tbody>
                       {historyLoans.map(loan => {
-                        const book = books.find(bk => bk.id === loan.bookId);
-                        const isOverdue = loan.status === 'overdue' || (loan.returnedAt && new Date(loan.returnedAt) > new Date(loan.dueDate));
-                        
+                        const book = loan.Book;
                         return (
                           <tr key={loan.id} className="border-b border-border-warm last:border-none group hover:bg-cream/50 transition-colors">
                              <td className="py-4 px-6">
@@ -321,9 +323,9 @@ const MyLibrary = () => {
                                    </div>
                                 </div>
                              </td>
-                             <td className="py-4 px-6 text-[12px] font-sans text-ink">{loan.borrowedAt}</td>
-                             <td className="py-4 px-6 text-[12px] font-sans text-ink">{loan.dueDate}</td>
-                             <td className="py-4 px-6 text-[12px] font-sans text-ink">{loan.returnedAt || '—'}</td>
+                             <td className="py-4 px-6 text-[12px] font-sans text-ink">{new Date(loan.borrowed_at).toLocaleDateString()}</td>
+                             <td className="py-4 px-6 text-[12px] font-sans text-ink">{new Date(loan.due_date).toLocaleDateString()}</td>
+                             <td className="py-4 px-6 text-[12px] font-sans text-ink">{loan.returned_at ? new Date(loan.returned_at).toLocaleDateString() : '—'}</td>
                              <td className="py-4 px-6">
                                 <span className={`text-[9px] font-sans font-bold uppercase tracking-widest px-2 py-0.5 border ${
                                   loan.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' :
@@ -332,9 +334,6 @@ const MyLibrary = () => {
                                 }`}>
                                    {loan.status}
                                 </span>
-                             </td>
-                             <td className="py-4 px-6 text-[12px] font-sans font-bold">
-                                {isOverdue ? <span className="text-red-600">₹9.50</span> : <span className="text-ink-muted">—</span>}
                              </td>
                           </tr>
                         );
@@ -350,40 +349,45 @@ const MyLibrary = () => {
              <div className="flex justify-between items-center mb-8 pb-4 border-b border-border-warm">
                 <h2 className="font-serif text-2xl font-bold text-ink">Your Reading Journey</h2>
                 <div className="text-[13px] font-sans text-ink-muted">
-                   {Object.keys(mockProgress).length} levels tracked · 1 volume complete
+                   {progressData.length} levels tracked · {progressData.filter(p => p.percent === 100).length} volumes complete
                 </div>
              </div>
 
-             {/* Overall Progress Card */}
              <div className="bg-espresso text-cream rounded-none p-8 mb-12 flex flex-col md:flex-row items-center gap-12">
                 <div className="shrink-0 flex flex-col items-center">
-                   <ProgressRing percent={45} size={110} strokeWidth={6} />
+                   <ProgressRing 
+                    percent={progressData.length > 0 ? Math.round(progressData.reduce((a, b) => a + b.percent, 0) / progressData.length) : 0} 
+                    size={110} 
+                    strokeWidth={6} 
+                   />
                    <span className="text-[10px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/40 mt-4">Avg. Completion</span>
                 </div>
                 
                 <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-10 w-full text-center md:text-left">
                    <div>
-                      <div className="font-serif text-4xl font-bold text-gold mb-1">5</div>
+                      <div className="font-serif text-4xl font-bold text-gold mb-1">{progressData.length}</div>
                       <div className="text-[10px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/40">Books Tracked</div>
                    </div>
                    <div>
-                      <div className="font-serif text-4xl font-bold text-gold mb-1">612</div>
+                      <div className="font-serif text-4xl font-bold text-gold mb-1">
+                        {progressData.reduce((sum, p) => sum + Math.round((p.percent / 100) * (p.Book?.pages || 0)), 0)}
+                      </div>
                       <div className="text-[10px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/40">Pages Read</div>
                    </div>
                    <div>
-                      <div className="font-serif text-4xl font-bold text-gold mb-1">1</div>
-                      <div className="text-[10px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/40">Volume Completed</div>
+                      <div className="font-serif text-4xl font-bold text-gold mb-1">{progressData.filter(p => p.percent === 100).length}</div>
+                      <div className="text-[10px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/40">Volumes Completed</div>
                    </div>
                 </div>
              </div>
 
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {Object.entries(mockProgress).map(([bookId, progress]) => {
-                  const book = books.find(b => b.id === parseInt(bookId));
+                {progressData.map((progress) => {
+                  const book = progress.Book;
                   const isCompleted = progress.percent === 100;
                   
                   return (
-                    <div key={bookId} className="bg-parchment border border-border-warm p-5 flex gap-5 group hover:border-brown/40 transition-colors">
+                    <div key={progress.id} className="bg-parchment border border-border-warm p-5 flex gap-5 group hover:border-brown/40 transition-colors">
                        <div className="w-14 shrink-0 shadow-md transform group-hover:scale-105 transition-transform">
                           <BookCover book={book} className="w-full h-full !rounded-none" />
                        </div>
@@ -400,7 +404,7 @@ const MyLibrary = () => {
                              </div>
                              <div className="flex justify-between items-center">
                                 <span className={`text-xs font-bold ${isCompleted ? 'text-green-700' : 'text-brown'}`}>{progress.percent}%</span>
-                                <span className="text-[11px] font-sans text-ink-muted">{progress.pagesRead} of {book.pages} pages</span>
+                                <span className="text-[11px] font-sans text-ink-muted">{Math.round((progress.percent / 100) * book.pages)} of {book.pages} pages</span>
                              </div>
                              
                              {isCompleted && (
@@ -418,7 +422,6 @@ const MyLibrary = () => {
         )}
       </main>
 
-      {/* Simplified academic footer for member area */}
       <footer className="bg-espresso py-8 border-t border-parchment/10 text-center">
          <p className="text-[10px] font-sans text-parchment/30 uppercase tracking-[0.3em]">
             Institutional Member · BookVault Library Portal · Est. 1987

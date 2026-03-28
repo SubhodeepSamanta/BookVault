@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Megaphone, 
@@ -15,23 +15,40 @@ import {
   Download,
   Calendar
 } from 'lucide-react';
-import { books } from '../data/books';
+import api from '../api/client';
 import BookCover from '../components/BookCover';
 import BookCard from '../components/BookCard';
 import StarRating from '../components/StarRating';
 
 const Home = () => {
-  // Mock data for featured sections
-  const featuredBook = books[0]; // The Great Gatsby
-  const popularBooks = books.slice(1, 4);
-  const newArrivals = books.slice(4, 12);
-  
-  const announcements = [
-    { id: 1, title: "Holiday closure — Dec 25 & 26", date: "Dec 18", desc: "All branches closed for winter break. Digital loans remain active." },
-    { id: 2, title: "New arrivals — 48 books added this week", date: "Dec 20", desc: "Science & Technology sections expanded with 2024 editions." },
-    { id: 3, title: "Fine amnesty week — all fees waived", date: "Dec 21", desc: "Late fees waived until Jan 5. Return books at any drop box." },
-  ];
+  const [featuredBook, setFeaturedBook] = useState(null);
+  const [popularBooks, setPopularBooks] = useState([]);
+  const [newArrivals, setNewArrivals] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [booksRes, featRes, announceRes] = await Promise.all([
+          api.get('/books?limit=12'),
+          api.get('/books/featured'),
+          api.get('/announcements')
+        ]);
+        
+        setNewArrivals(booksRes.data.books);
+        setPopularBooks(booksRes.data.books.slice(1, 4));
+        setFeaturedBook(featRes.data.book);
+        setAnnouncements(announceRes.data.announcements);
+      } catch (err) {
+        console.error('Error fetching home data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+  
   const genres = [
     { name: "Classic Fiction", icon: BookOpen, count: 284 },
     { name: "Science Fiction", icon: Rocket, count: 156 },
@@ -42,6 +59,17 @@ const Home = () => {
     { name: "Science", icon: FlaskConical, count: 211 },
     { name: "Poetry", icon: Feather, count: 68 },
   ];
+
+  if (loading || !featuredBook) {
+    return (
+      <div className="min-h-screen bg-espresso flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <BookOpen className="text-gold animate-pulse" size={48} />
+          <span className="text-cream/50 font-sans uppercase tracking-[0.3em] text-[10px]">Opening The Vaults...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -68,7 +96,7 @@ const Home = () => {
             <div className="w-full h-px bg-parchment/20 mb-8" />
 
             <p className="font-sans text-base md:text-lg text-parchment/60 leading-relaxed max-w-md mb-10">
-              From timeless classics to cutting-edge research — borrow, reserve, and download from our collection of 12,400+ titles across every discipline.
+              From timeless classics to cutting-edge research — borrow, reserve, and download from our collection.
             </p>
 
             <div className="flex flex-wrap gap-4 mt-4">
@@ -161,8 +189,8 @@ const Home = () => {
               <Megaphone size={16} className="text-brown" />
               <div className="flex flex-col">
                 <span className="text-[13px] font-sans font-semibold text-ink leading-none mb-1">{item.title}</span>
-                <span className="text-[11px] font-sans text-ink-muted leading-none">
-                  {item.date} <span className="mx-1">·</span> {item.desc}
+                <span className="text-[11px] font-sans text-ink-muted leading-none capitalize">
+                   By {item.admin?.name || 'Academic Board'} <span className="mx-1">·</span> {item.body}
                 </span>
               </div>
             </div>
@@ -204,12 +232,12 @@ const Home = () => {
               <div className="flex items-center gap-3 mb-6">
                 <StarRating rating={featuredBook.rating} size={18} />
                 <span className="font-serif font-bold text-lg text-ink">{featuredBook.rating}</span>
-                <span className="text-ink-muted text-sm">(284 verifying reviews)</span>
+                <span className="text-ink-muted text-sm">({featuredBook.rating_count} verifying reviews)</span>
               </div>
 
               <div className="w-full h-px bg-border-warm mb-8" />
 
-              <p className="font-sans text-base md:text-lg text-ink-soft leading-relaxed mb-8 max-w-2xl">
+              <p className="font-sans text-base md:text-lg text-ink-soft leading-relaxed mb-8 max-w-2xl text-justify">
                 {featuredBook.description}
               </p>
 
@@ -233,9 +261,12 @@ const Home = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-4 mt-auto">
-                <button className="bg-espresso text-cream font-sans font-semibold px-8 py-4 rounded-none text-sm uppercase tracking-[0.15em] hover:bg-espresso-light transition-all">
-                  Borrow This Book
-                </button>
+                <Link 
+                  to={`/book/${featuredBook.id}`}
+                  className="bg-espresso text-cream font-sans font-semibold px-8 py-4 rounded-none text-sm uppercase tracking-[0.15em] hover:bg-espresso-light transition-all"
+                >
+                  View Full Details
+                </Link>
                 {featuredBook.gutenberg_url && (
                   <a 
                     href={featuredBook.gutenberg_url}
@@ -244,12 +275,9 @@ const Home = () => {
                     className="border border-brown text-brown font-sans font-semibold px-8 py-4 rounded-none text-sm uppercase tracking-[0.15em] hover:bg-brown hover:text-cream transition-all flex items-center gap-2"
                   >
                     <Download size={16} />
-                    Download Free PDF
+                    Download Free
                   </a>
                 )}
-                <button className="text-ink-muted hover:text-brown transition-colors text-sm underline underline-offset-4 ml-2">
-                  Schedule Pickup
-                </button>
               </div>
             </div>
           </div>
@@ -367,11 +395,6 @@ const Home = () => {
               <p className="font-sans text-sm text-parchment/50 leading-relaxed max-w-xs">
                 Your university's complete library, reimagined for the digital age. A comprehensive portal for learning and discovery.
               </p>
-              <div className="pt-2">
-                <span className="text-[10px] font-sans uppercase tracking-[2px] text-parchment/30 italic">
-                  A project by the Faculty of Computer Science
-                </span>
-              </div>
             </div>
 
             {/* Col 2 */}
@@ -381,8 +404,6 @@ const Home = () => {
                 <li><Link to="/" className="text-sm hover:text-gold transition-colors">Home</Link></li>
                 <li><Link to="/catalogue" className="text-sm hover:text-gold transition-colors">Catalogue</Link></li>
                 <li><Link to="/" className="text-sm hover:text-gold transition-colors">Book of the Week</Link></li>
-                <li><Link to="/" className="text-sm hover:text-gold transition-colors">Free Downloads</Link></li>
-                <li><Link to="/" className="text-sm hover:text-gold transition-colors">Resources</Link></li>
               </ul>
             </div>
 
@@ -393,8 +414,6 @@ const Home = () => {
                 <li className="text-sm hover:text-gold transition-colors cursor-pointer">Sign In</li>
                 <li className="text-sm hover:text-gold transition-colors cursor-pointer">Register</li>
                 <li><Link to="/my-library" className="text-sm hover:text-gold transition-colors">My Library</Link></li>
-                <li className="text-sm hover:text-gold transition-colors cursor-pointer">My Fines</li>
-                <li className="text-sm hover:text-gold transition-colors cursor-pointer">Borrowing History</li>
               </ul>
             </div>
 
@@ -410,17 +429,9 @@ const Home = () => {
                   <span>Saturday</span>
                   <span className="text-parchment font-medium">9:00 AM – 6:00 PM</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span>Sunday</span>
-                  <span className="text-parchment font-medium">11:00 AM – 5:00 PM</span>
-                </div>
                 <div className="pt-2 flex items-center gap-2 text-xs text-parchment/40 italic">
                   <Calendar size={12} />
                   <span>Public Holidays: Closed</span>
-                </div>
-                <div className="mt-6 pt-6 border-t border-parchment/10">
-                   <p className="text-xs text-parchment/40">Campus Central Branch</p>
-                   <p className="text-xs text-parchment/40">12 University Way, Cambridge</p>
                 </div>
               </div>
             </div>
@@ -429,9 +440,6 @@ const Home = () => {
           <div className="pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-[11px] font-sans text-parchment/30 uppercase tracking-[0.2em]">
               © 2024 BookVault · University Library Management System
-            </p>
-            <p className="text-[11px] font-sans text-parchment/30 uppercase tracking-[0.2em]">
-              Built with React · Vite · Tailwind CSS
             </p>
           </div>
         </div>

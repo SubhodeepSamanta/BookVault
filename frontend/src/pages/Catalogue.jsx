@@ -1,10 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Filter, BookX, ChevronLeft, ChevronRight, Check, X } from 'lucide-react';
-import { books } from '../data/books';
+import api from '../api/client';
 import BookCard from '../components/BookCard';
 
 const Catalogue = () => {
+  const [books, setBooks] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [showAvailableOnly, setShowAvailableOnly] = useState(false);
@@ -12,38 +14,46 @@ const Catalogue = () => {
   const [hasFreeDownload, setHasFreeDownload] = useState(false);
   const [sortBy, setSortBy] = useState('relevance');
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalBooks, setTotalBooks] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const booksPerPage = 9;
 
-  const allGenres = [...new Set(books.map(b => b.genre))].sort();
+  useEffect(() => {
+    const fetchBooks = async () => {
+      setLoading(true);
+      try {
+        const params = {
+          page: currentPage,
+          limit: booksPerPage,
+          search: searchQuery,
+          genre: selectedGenres.join(','),
+          available: showAvailableOnly,
+          minRating: minRating,
+          downloadable: hasFreeDownload,
+          sort: sortBy
+        };
+        const res = await api.get('/books', { params });
+        setBooks(res.data.books);
+        setTotalBooks(res.data.total);
+        setTotalPages(res.data.totalPages);
+      } catch (err) {
+        console.error('Error fetching catalogue:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const filteredBooks = useMemo(() => {
-    let result = books.filter(book => {
-      const matchesSearch = book.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            book.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            book.isbn.includes(searchQuery);
-      
-      const matchesGenre = selectedGenres.length === 0 || selectedGenres.includes(book.genre);
-      const matchesAvailability = !showAvailableOnly || book.available_copies > 0;
-      const matchesRating = book.rating >= minRating;
-      const matchesDownload = !hasFreeDownload || book.gutenberg_url !== null;
+    const debounce = setTimeout(() => {
+      fetchBooks();
+    }, 300);
 
-      return matchesSearch && matchesGenre && matchesAvailability && matchesRating && matchesDownload;
-    });
+    return () => clearTimeout(debounce);
+  }, [currentPage, searchQuery, selectedGenres, showAvailableOnly, minRating, hasFreeDownload, sortBy]);
 
-    // Sorting
-    if (sortBy === 'title') {
-      result.sort((a, b) => a.title.localeCompare(b.title));
-    } else if (sortBy === 'rating') {
-      result.sort((a, b) => b.rating - a.rating);
-    } else if (sortBy === 'newest') {
-      result.sort((a, b) => b.published_year - a.published_year);
-    }
-
-    return result;
-  }, [searchQuery, selectedGenres, showAvailableOnly, minRating, hasFreeDownload, sortBy]);
-
-  const totalPages = Math.ceil(filteredBooks.length / booksPerPage);
-  const currentBooks = filteredBooks.slice((currentPage - 1) * booksPerPage, currentPage * booksPerPage);
+  const allGenres = [
+    "Classic Fiction", "Science Fiction", "History", "Technology", 
+    "Philosophy", "Biography", "Science", "Poetry", "Psychology"
+  ].sort();
 
   const toggleGenre = (genre) => {
     setSelectedGenres(prev => 
@@ -72,7 +82,7 @@ const Catalogue = () => {
              </span>
           </nav>
           <h1 className="font-serif text-4xl md:text-6xl text-cream font-bold mb-2">The Collection</h1>
-          <p className="font-sans text-sm md:text-base text-parchment/50 italic mb-6">12,400 volumes across every discipline</p>
+          <p className="font-sans text-sm md:text-base text-parchment/50 italic mb-6">{totalBooks} volumes across every discipline</p>
           <div className="w-16 h-px bg-gold" />
         </div>
       </header>
@@ -123,7 +133,7 @@ const Catalogue = () => {
               </select>
             </div>
             <span className="text-[12px] font-sans text-ink-muted ml-4 hidden md:inline">
-              Showing {currentBooks.length} of {filteredBooks.length}
+              Showing {books.length} of {totalBooks}
             </span>
           </div>
         </div>
@@ -158,9 +168,6 @@ const Catalogue = () => {
                     />
                     <span className="text-[13px] font-sans text-ink group-hover:text-brown transition-colors">
                       {genre}
-                    </span>
-                    <span className="text-[11px] font-sans text-ink-muted ml-auto">
-                      ({books.filter(b => b.genre === genre).length})
                     </span>
                   </label>
                 ))}
@@ -237,10 +244,16 @@ const Catalogue = () => {
 
         {/* BOOK GRID CONTENT */}
         <main className="flex-1 min-w-0">
-          {currentBooks.length > 0 ? (
+          {loading ? (
+             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+               {[...Array(6)].map((_, i) => (
+                 <div key={i} className="aspect-[2/3] bg-parchment animate-pulse border border-border-warm" />
+               ))}
+             </div>
+          ) : books.length > 0 ? (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                {currentBooks.map(book => (
+                {books.map(book => (
                   <BookCard key={book.id} book={book} />
                 ))}
               </div>

@@ -4,9 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
 const AuthModal = () => {
-  const { authModalOpen, closeAuthModal, authModalMode, setAuthModalMode, login } = useAuth();
+  const { authModalOpen, closeAuthModal, authModalMode, setAuthModalMode, login, register } = useAuth();
   const { addToast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -25,28 +26,31 @@ const AuthModal = () => {
 
   if (!authModalOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+
     if (authModalMode === 'login') {
-      login({ 
-        id: 1, 
-        name: 'Alex Johnson', 
-        email: formData.email, 
-        role: 'student', 
-        cardId: 'BV-2024-00042' 
-      });
-      addToast('Welcome back, Alex!', 'success');
+      const success = await login(formData.email, formData.password);
+      if (success) {
+        setFormData({ email: '', password: '', name: '', confirmPassword: '' });
+      }
     } else {
-      login({ 
-        id: 2, 
-        name: formData.name || 'New Member', 
-        email: formData.email, 
-        role: 'student', 
-        cardId: 'BV-2024-00099' 
+      if (formData.password !== formData.confirmPassword) {
+        addToast('Passwords do not match', 'error');
+        setLoading(false);
+        return;
+      }
+      const success = await register({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password
       });
-      addToast('Account created successfully!', 'success');
+      if (success) {
+        setFormData({ email: '', password: '', name: '', confirmPassword: '' });
+      }
     }
-    closeAuthModal();
+    setLoading(false);
   };
 
   const handleTabChange = (mode) => {
@@ -188,9 +192,10 @@ const AuthModal = () => {
 
           <button
             type="submit"
-            className="w-full bg-espresso text-cream py-4 font-sans font-bold uppercase tracking-[0.2em] text-xs hover:bg-black transition-all shadow-lg active:scale-[0.98]"
+            disabled={loading}
+            className="w-full bg-espresso text-cream py-4 font-sans font-bold uppercase tracking-[0.2em] text-xs hover:bg-black transition-all shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {authModalMode === 'login' ? 'Sign In' : 'Create Account'}
+            {loading ? 'Processing...' : (authModalMode === 'login' ? 'Sign In' : 'Create Account')}
           </button>
 
           <div className="my-6 flex items-center gap-4">
@@ -202,32 +207,14 @@ const AuthModal = () => {
           <div className="flex gap-3">
             <button
               type="button"
-              onClick={() => {
-                login({ 
-                  id: 1, 
-                  name: 'Alex Johnson', 
-                  email: 'alex@uni.edu', 
-                  role: 'student', 
-                  cardId: 'BV-2024-00042' 
-                });
-                closeAuthModal();
-              }}
+              onClick={() => login('alex@univ.edu', '12345678')}
               className="flex-1 border border-border-warm text-ink-muted text-[11px] font-sans font-bold uppercase tracking-widest py-3 hover:border-brown hover:text-brown transition-all"
             >
               Student
             </button>
             <button
               type="button"
-              onClick={() => {
-                login({ 
-                  id: 99, 
-                  name: 'Dr. Sarah Malik', 
-                  email: 'admin@bookvault.edu', 
-                  role: 'admin', 
-                  cardId: 'BV-ADMIN-001' 
-                });
-                closeAuthModal();
-              }}
+              onClick={() => login('bookvaultadmin@gmail.com', '12345678')}
               className="flex-1 border border-brown text-brown text-[11px] font-sans font-bold uppercase tracking-widest py-3 hover:bg-brown hover:text-cream transition-all"
             >
               Admin
