@@ -331,7 +331,7 @@ const Home = () => {
           <div className="flex gap-8 overflow-x-auto pb-8 scrollbar-hide">
             {newArrivals.map((book) => (
               <div key={book.id} className="min-w-[160px] md:min-w-[180px] group transition-transform hover:-translate-y-2">
-                <Link to={`/books/${book.id}`}>
+                <Link to={`/book/${book.id}`}>
                   <BookCover book={book} className="w-full aspect-[2/3] shadow-lg group-hover:shadow-2xl transition-shadow" />
                 </Link>
                 <div className="mt-4">
@@ -341,7 +341,7 @@ const Home = () => {
                     <StarRating rating={book.rating} size={10} />
                     <span className="text-[10px] font-bold text-ink-soft">{book.rating}</span>
                   </div>
-                  <Link to={`/books/${book.id}`} className="text-brown text-[11px] font-bold uppercase tracking-widest underline underline-offset-4 decoration-brown/30 hover:decoration-brown transition-all">
+                  <Link to={`/book/${book.id}`} className="text-brown text-[11px] font-bold uppercase tracking-widest underline underline-offset-4 decoration-brown/30 hover:decoration-brown transition-all">
                     View Details
                   </Link>
                 </div>

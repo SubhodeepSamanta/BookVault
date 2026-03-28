@@ -12,7 +12,6 @@ import {
   Star as StarIcon,
   ChevronDown
 } from 'lucide-react';
-import AdminLayout from '../../components/admin/AdminLayout';
 import BookCover from '../../components/BookCover';
 import StarRating from '../../components/StarRating';
 import { useAuth } from '../../context/AuthContext';
@@ -118,7 +117,7 @@ const BooksManager = () => {
   });
 
   return (
-    <AdminLayout title="Books Manager">
+    <>
       <div className="flex h-[calc(100vh-160px)] gap-10 overflow-hidden relative">
         
         {/* MAIN TABLE AREA */}
@@ -432,7 +431,7 @@ const BooksManager = () => {
           </div>
         )}
       </div>
-    </AdminLayout>
+    </>
   );
 };
 

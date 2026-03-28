@@ -13,7 +13,6 @@ import {
   TrendingUp,
   TrendingDown
 } from 'lucide-react';
-import AdminLayout from '../../components/admin/AdminLayout';
 import BookCover from '../../components/BookCover';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -126,7 +125,7 @@ const Dashboard = () => {
   };
 
   return (
-    <AdminLayout title="System Dashboard">
+    <>
       
       {/* ── STAT CARDS ROW ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
@@ -412,7 +411,7 @@ const Dashboard = () => {
         </div>
 
       </div>
-    </AdminLayout>
+    </>
   );
 };
 

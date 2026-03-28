@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, Link, useNavigate } from 'react-router-dom';
+import { NavLink, Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -15,9 +15,10 @@ import { useAuth } from '../../context/AuthContext';
 const AdminLayout = ({ children, title }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const navLinks = [
-    { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
+    { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Books', path: '/admin/books', icon: BookOpen },
     { name: 'Users & Borrows', path: '/admin/users', icon: Users },
     { name: 'Pickups & Fines', path: '/admin/pickups', icon: CalendarCheck },
@@ -57,7 +58,7 @@ const AdminLayout = ({ children, title }) => {
             <NavLink
               key={link.path}
               to={link.path}
-              end={link.path === '/admin'}
+              end={link.path === '/admin/dashboard'}
               className={({ isActive }) => `
                 flex items-center gap-3 px-4 py-3 rounded-none transition-all group
                 ${isActive 
@@ -113,7 +114,9 @@ const AdminLayout = ({ children, title }) => {
         {/* TOP BAR */}
         <header className="bg-parchment border-b border-border-warm px-10 py-5 flex justify-between items-center sticky top-0 z-40 shadow-sm backdrop-blur-md bg-opacity-90">
           <div>
-            <h1 className="font-serif text-2xl font-bold text-ink tracking-tight">{title}</h1>
+            <h1 className="font-serif text-2xl font-bold text-ink tracking-tight">
+              {title || navLinks.find(l => l.path === location.pathname)?.name || 'Management Console'}
+            </h1>
             <div className="text-[10px] font-sans text-ink-muted uppercase tracking-[0.2em] mt-0.5">BookVault Management Console</div>
           </div>
           
@@ -131,7 +134,7 @@ const AdminLayout = ({ children, title }) => {
 
         {/* SCROLLABLE PAGE CONTENT */}
         <div className="p-10 flex-1 overflow-x-hidden">
-          {children}
+          {children || <Outlet />}
         </div>
       </main>
 

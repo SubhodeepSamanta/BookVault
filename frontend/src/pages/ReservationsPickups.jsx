@@ -356,7 +356,10 @@ const ReservationsPickups = () => {
                         {pickup.status === 'confirmed' && (
                           <>
                              <span className="text-[10px] font-sans text-ink-muted italic mr-auto">Please bring your library card ID: <span className="font-mono font-bold text-ink">{user.cardId}</span></span>
-                             <button className="text-[11px] font-sans font-bold text-brown uppercase tracking-widest underline underline-offset-4 hover:text-espresso transition-colors">
+                             <button 
+                                onClick={() => navigate(`/book/${pickup.bookId}`)}
+                                className="text-[11px] font-sans font-bold text-brown uppercase tracking-widest underline underline-offset-4 hover:text-espresso transition-colors"
+                             >
                                 View Details
                              </button>
                           </>

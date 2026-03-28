@@ -15,7 +15,6 @@ import {
   Calendar,
   Star as StarIcon
 } from 'lucide-react';
-import AdminLayout from '../../components/admin/AdminLayout';
 import StarRating from '../../components/StarRating';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -83,7 +82,7 @@ const Content = () => {
   };
 
   return (
-    <AdminLayout title="Content Management">
+    <>
       
       {/* TABS */}
       <div className="flex gap-10 border-b border-border-warm mb-8">
@@ -292,7 +291,7 @@ const Content = () => {
         </div>
       )}
 
-    </AdminLayout>
+    </>
   );
 };
 

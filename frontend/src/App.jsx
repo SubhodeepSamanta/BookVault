@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, Outlet } from 'react-router-dom';
+import AdminLayout from './components/admin/AdminLayout';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import Navbar from './components/Navbar';
@@ -23,14 +24,30 @@ function App() {
       <AuthProvider>
         <ToastProvider>
           <div className="flex flex-col min-h-screen bg-cream selection:bg-gold/30">
-            {/* Global UI Elements */}
-            <Navbar />
+            {/* Global UI Elements (Modals & Toasts) */}
             <AuthModal />
             <Toast />
 
-            {/* Main Content Areas */}
-            <main className="flex-1">
-              <Routes>
+            <Routes>
+              {/* ADMIN PORTAL (No Global Navbar) */}
+              <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+              <Route element={<AdminLayout />}>
+                <Route path="/admin/dashboard" element={<Dashboard />} />
+                <Route path="/admin/books" element={<BooksManager />} />
+                <Route path="/admin/users" element={<UsersAndBorrows />} />
+                <Route path="/admin/pickups" element={<PickupsAndFines />} />
+                <Route path="/admin/content" element={<Content />} />
+              </Route>
+
+              {/* PUBLIC SITE (With Global Navbar) */}
+              <Route element={
+                <>
+                  <Navbar />
+                  <main className="flex-1">
+                    <Outlet />
+                  </main>
+                </>
+              }>
                 <Route path="/" element={<Home />} />
                 <Route path="/catalogue" element={<Catalogue />} />
                 <Route path="/book/:id" element={<BookDetail />} />
@@ -38,15 +55,6 @@ function App() {
                 <Route path="/reservations" element={<ReservationsPickups />} />
                 <Route path="/fines" element={<Fines />} />
                 <Route path="/profile" element={<Profile />} />
-                
-                {/* Admin Routes */}
-                <Route path="/admin/dashboard" element={<Dashboard />} />
-                <Route path="/admin/books" element={<BooksManager />} />
-                <Route path="/admin/users" element={<UsersAndBorrows />} />
-                <Route path="/admin/pickups" element={<PickupsAndFines />} />
-                <Route path="/admin/content" element={<Content />} />
-                
-                {/* 404 Route */}
                 <Route path="*" element={
                   <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center">
                     <h2 className="font-serif text-4xl text-ink font-bold mb-4">404: Volume Misplaced</h2>
@@ -54,8 +62,8 @@ function App() {
                     <Link to="/" className="bg-espresso text-cream px-8 py-3 uppercase tracking-widest text-xs font-bold font-sans">Return to Reading Room</Link>
                   </div>
                 } />
-              </Routes>
-            </main>
+              </Route>
+            </Routes>
           </div>
         </ToastProvider>
       </AuthProvider>

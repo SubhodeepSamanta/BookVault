@@ -15,7 +15,6 @@ import {
   IndianRupee,
   ChevronRight
 } from 'lucide-react';
-import AdminLayout from '../../components/admin/AdminLayout';
 import BookCover from '../../components/BookCover';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -112,7 +111,7 @@ const PickupsAndFines = () => {
   const filteredFines = fineList.filter(f => filter === 'All' || (filter === 'Paid' ? f.paid : !f.paid));
 
   return (
-    <AdminLayout title="Pickups & Fines">
+    <>
       
       {/* TABS */}
       <div className="flex gap-10 border-b border-border-warm mb-8">
@@ -423,7 +422,7 @@ const PickupsAndFines = () => {
         </div>
       )}
 
-    </AdminLayout>
+    </>
   );
 };
 

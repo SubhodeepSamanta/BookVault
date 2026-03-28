@@ -140,11 +140,13 @@ const Fines = () => {
                 </div>
                 
                 <div className="px-6 py-6 flex gap-8 items-start">
-                   <div className="w-20 shrink-0 shadow-lg mt-1">
-                      <BookCover book={books.find(b => b.id === unpaidFine.bookId)} className="w-full h-full scale-105 !rounded-none" />
-                   </div>
+                   <Link to={`/book/${unpaidFine.bookId}`} className="w-20 shrink-0 shadow-lg mt-1 hover:scale-105 transition-transform">
+                      <BookCover book={books.find(b => b.id === unpaidFine.bookId)} className="w-full h-full !rounded-none" />
+                   </Link>
                    <div className="flex-1">
-                      <h3 className="font-serif text-xl font-bold text-ink mb-1">{books.find(b => b.id === unpaidFine.bookId).title}</h3>
+                      <Link to={`/book/${unpaidFine.bookId}`}>
+                         <h3 className="font-serif text-xl font-bold text-ink mb-1 hover:text-red-700 transition-colors">{books.find(b => b.id === unpaidFine.bookId).title}</h3>
+                      </Link>
                       <p className="font-sans text-xs italic text-ink-muted mb-4">by {books.find(b => b.id === unpaidFine.bookId).author}</p>
                       
                       <div className="inline-flex items-center gap-2 text-[13px] font-sans font-bold text-red-600 mb-6 bg-red-100/50 px-3 py-1 rounded-sm">
@@ -199,11 +201,13 @@ const Fines = () => {
                    </div>
                    
                    <div className="px-5 py-4 flex gap-5 items-center flex-1">
-                      <div className="w-10 h-14 shrink-0 shadow-sm transform scale-90 group-hover:scale-100 transition-transform">
+                      <Link to={`/book/${fine.bookId}`} className="w-10 h-14 shrink-0 shadow-sm transform scale-90 hover:scale-110 transition-transform">
                          <BookCover book={books.find(b => b.id === fine.bookId)} className="w-full h-full !rounded-none" />
-                      </div>
+                      </Link>
                       <div className="flex-1 min-w-0">
-                         <h4 className="font-serif text-[15px] font-bold text-ink truncate">{books.find(b => b.id === fine.bookId).title}</h4>
+                         <Link to={`/book/${fine.bookId}`}>
+                            <h4 className="font-serif text-[15px] font-bold text-ink truncate hover:text-green-800 transition-colors">{books.find(b => b.id === fine.bookId).title}</h4>
+                         </Link>
                          <p className="text-[11px] font-sans text-green-700 mb-1 font-medium">Paid on {fine.paidAt}</p>
                          <div className="font-mono text-[10px] text-ink-muted">Txn: {fine.txnId}</div>
                       </div>

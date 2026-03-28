@@ -10,7 +10,7 @@ const BookCard = ({ book }) => {
 
   return (
     <Link 
-      to={`/books/${book.id}`}
+      to={`/book/${book.id}`}
       className="bg-parchment border border-border-warm hover:border-brown hover:shadow-md transition-all duration-300 cursor-pointer group flex flex-col"
     >
       <div className="relative aspect-[2/3] overflow-hidden">

@@ -13,7 +13,6 @@ import {
   CheckCircle,
   Bell
 } from 'lucide-react';
-import AdminLayout from '../../components/admin/AdminLayout';
 import BookCover from '../../components/BookCover';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -119,7 +118,7 @@ const UsersAndBorrows = () => {
   });
 
   return (
-    <AdminLayout title="Users & Borrows">
+    <>
       
       {/* TABS */}
       <div className="flex gap-10 border-b border-border-warm mb-8 overflow-x-auto scrollbar-none">
@@ -485,7 +484,7 @@ const UsersAndBorrows = () => {
         </div>
       )}
 
-    </AdminLayout>
+    </>
   );
 };
 
