@@ -29,22 +29,19 @@ const Navbar = () => {
         </Link>
 
         {/* CENTER: Desktop Nav Links */}
-        <div className="hidden md:flex items-center gap-8 h-full">
-          {navLinks.map((link) => (
-            <Link
-              key={link.path}
-              to={link.path}
-              className={`
-                text-[13px] font-sans uppercase tracking-[0.1em] h-full flex items-center transition-all px-1 border-b-2
-                ${isActive(link.path) 
-                  ? 'text-gold-light border-gold-light' 
-                  : 'text-parchment/70 border-transparent hover:text-parchment'
-                }
-              `}
-            >
-              {link.name}
-            </Link>
-          ))}
+        <div className="hidden md:flex items-center gap-10">
+          <Link to="/" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-ink hover:text-brown transition-colors">Home</Link>
+          <Link to="/catalogue" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-ink hover:text-brown transition-colors">Catalogue</Link>
+          {user && (
+            <>
+              <Link to="/my-library" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-ink hover:text-brown transition-colors">My Library</Link>
+              <Link to="/reservations" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-ink hover:text-brown transition-colors">Reservations</Link>
+              <Link to="/fines" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-ink hover:text-brown transition-colors">Fines</Link>
+              {user.role === 'admin' && (
+                <Link to="/admin/dashboard" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-gold hover:text-gold-light transition-colors border border-gold/30 px-3 py-1 ml-4">Admin Panel</Link>
+              )}
+            </>
+          )}
         </div>
 
         {/* RIGHT: Auth Buttons */}
@@ -66,12 +63,12 @@ const Navbar = () => {
             </>
           ) : (
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-brown flex items-center justify-center text-cream text-xs font-bold border border-parchment/20">
+              <Link to="/profile" className="flex items-center gap-3 group/profile">
+                <div className="w-8 h-8 rounded-full bg-brown flex items-center justify-center text-cream text-xs font-bold border border-parchment/20 group-hover/profile:border-gold transition-colors">
                   {user.name.split(' ').map(n => n[0]).join('')}
                 </div>
-                <span className="text-parchment/80 text-sm font-sans">{user.name}</span>
-              </div>
+                <span className="text-parchment/80 text-sm font-sans group-hover/profile:text-gold transition-colors">{user.name}</span>
+              </Link>
               <button
                 onClick={logout}
                 className="text-xs text-parchment/50 hover:text-gold transition-colors underline underline-offset-4"
@@ -94,17 +91,19 @@ const Navbar = () => {
       {/* MOBILE MENU DROPDOWN */}
       {mobileMenuOpen && (
         <div className="absolute top-[64px] left-0 w-full bg-espresso-light border-t border-parchment/10 md:hidden animate-in fade-in slide-in-from-top-4 duration-200">
-          <div className="flex flex-col p-6 gap-4">
-            {navLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`text-sm font-sans uppercase tracking-widest ${isActive(link.path) ? 'text-gold' : 'text-parchment/70'}`}
-              >
-                {link.name}
-              </Link>
-            ))}
+          <div className="flex flex-col gap-6 p-6">
+            <Link to="/" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-ink">Home</Link>
+            <Link to="/catalogue" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-ink">Catalogue</Link>
+            {user && (
+              <>
+                <Link to="/my-library" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-ink">My Library</Link>
+                <Link to="/reservations" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-ink">Reservations</Link>
+                <Link to="/fines" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-ink">Fines</Link>
+                {user.role === 'admin' && (
+                  <Link to="/admin/dashboard" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-gold">Admin Panel</Link>
+                )}
+              </>
+            )}
             <div className="h-px bg-parchment/10 my-2" />
             {!user ? (
               <div className="flex flex-col gap-3">
@@ -123,15 +122,15 @@ const Navbar = () => {
               </div>
             ) : (
               <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-3">
-                   <div className="w-10 h-10 rounded-full bg-brown flex items-center justify-center text-cream font-bold">
+                <Link to="/profile" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 group/mobile">
+                   <div className="w-10 h-10 rounded-full bg-brown flex items-center justify-center text-cream font-bold border border-parchment/10 group-hover/mobile:border-gold transition-colors">
                     {user.name.split(' ').map(n => n[0]).join('')}
                   </div>
                   <div>
-                    <div className="text-parchment font-medium">{user.name}</div>
-                    <div className="text-parchment/50 text-xs">{user.cardId}</div>
+                    <div className="text-parchment font-medium group-hover/mobile:text-gold transition-colors">{user.name}</div>
+                    <div className="text-parchment/50 text-xs group-hover/mobile:text-gold/50 transition-colors">{user.cardId}</div>
                   </div>
-                </div>
+                </Link>
                 <button
                   onClick={() => { logout(); setMobileMenuOpen(false); }}
                   className="text-left text-gold text-sm underline underline-offset-4"

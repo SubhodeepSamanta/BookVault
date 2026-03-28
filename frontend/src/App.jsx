@@ -7,6 +7,15 @@ import Toast from './components/Toast';
 import Home from './pages/Home';
 import Catalogue from './pages/Catalogue';
 import BookDetail from './pages/BookDetail';
+import MyLibrary from './pages/MyLibrary';
+import ReservationsPickups from './pages/ReservationsPickups';
+import Fines from './pages/Fines';
+import Profile from './pages/Profile';
+import Dashboard from './pages/admin/Dashboard';
+import BooksManager from './pages/admin/BooksManager';
+import UsersAndBorrows from './pages/admin/UsersAndBorrows';
+import PickupsAndFines from './pages/admin/PickupsAndFines';
+import Content from './pages/admin/Content';
 
 function App() {
   return (
@@ -24,10 +33,18 @@ function App() {
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/catalogue" element={<Catalogue />} />
-                <Route path="/books/:id" element={<BookDetail />} />
+                <Route path="/book/:id" element={<BookDetail />} />
+                <Route path="/my-library" element={<MyLibrary />} />
+                <Route path="/reservations" element={<ReservationsPickups />} />
+                <Route path="/fines" element={<Fines />} />
+                <Route path="/profile" element={<Profile />} />
                 
-                {/* Fallback for "My Library" which redirects to Home for now or shows a placeholder */}
-                <Route path="/my-library" element={<Catalogue />} />
+                {/* Admin Routes */}
+                <Route path="/admin/dashboard" element={<Dashboard />} />
+                <Route path="/admin/books" element={<BooksManager />} />
+                <Route path="/admin/users" element={<UsersAndBorrows />} />
+                <Route path="/admin/pickups" element={<PickupsAndFines />} />
+                <Route path="/admin/content" element={<Content />} />
                 
                 {/* 404 Route */}
                 <Route path="*" element={

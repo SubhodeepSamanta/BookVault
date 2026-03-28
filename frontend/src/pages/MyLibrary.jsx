@@ -1,0 +1,431 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { 
+  CreditCard, 
+  BookOpen, 
+  AlertCircle, 
+  IndianRupee, 
+  CalendarDays,
+  Search,
+  CheckCircle,
+  Archive,
+  ChevronRight
+} from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import BookCover from '../components/BookCover';
+import ProgressRing from '../components/ProgressRing';
+import { books } from '../data/books';
+
+const mockBorrows = [
+  {
+    id: 1, bookId: 1, status: 'active',
+    borrowedAt: '2024-11-20', dueDate: '2024-12-04',
+    returnedAt: null
+  },
+  {
+    id: 2, bookId: 3, status: 'overdue',
+    borrowedAt: '2024-11-01', dueDate: '2024-11-15',
+    returnedAt: null
+  },
+  {
+    id: 3, bookId: 5, status: 'returned',
+    borrowedAt: '2024-10-10', dueDate: '2024-10-24',
+    returnedAt: '2024-10-22'
+  },
+  {
+    id: 4, bookId: 7, status: 'returned',
+    borrowedAt: '2024-09-15', dueDate: '2024-09-29',
+    returnedAt: '2024-09-28'
+  },
+  {
+    id: 5, bookId: 2, status: 'active',
+    borrowedAt: '2024-11-25', dueDate: '2024-12-09',
+    returnedAt: null
+  },
+];
+
+const mockProgress = {
+  1: { percent: 62, pagesRead: 112 },
+  3: { percent: 28, pagesRead: 94 },
+  5: { percent: 100, pagesRead: 320 },
+  7: { percent: 45, pagesRead: 180 },
+  2: { percent: 5, pagesRead: 18 },
+};
+
+const MyLibrary = () => {
+  const { user, openAuthModal } = useAuth();
+  const navigate = useNavigate();
+  const { addToast } = useToast();
+  const [activeTab, setActiveTab] = useState('active loans');
+  const [loanFilter, setLoanFilter] = useState('All');
+  const [historySearch, setHistorySearch] = useState('');
+
+  useEffect(() => {
+    if (!user) { 
+      navigate('/'); 
+      openAuthModal('login'); 
+    }
+  }, [user, navigate, openAuthModal]);
+
+  if (!user) return null;
+
+  const activeLoans = mockBorrows.filter(b => b.status === 'active' || b.status === 'overdue');
+  const filteredLoans = activeLoans.filter(loan => {
+    if (loanFilter === 'All') return true;
+    return loan.status.toLowerCase() === loanFilter.toLowerCase();
+  });
+
+  const historyLoans = mockBorrows.filter(b => 
+    books.find(bk => bk.id === b.bookId).title.toLowerCase().includes(historySearch.toLowerCase())
+  );
+
+  const stats = {
+    active: activeLoans.filter(l => l.status === 'active').length,
+    overdue: activeLoans.filter(l => l.status === 'overdue').length,
+    fines: "9.50"
+  };
+
+  const calculateDaysRemaining = (dueDate) => {
+    const today = new Date('2024-12-01'); // Mocking "today" for consistent display with mock data
+    const due = new Date(dueDate);
+    const diffTime = due - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  return (
+    <div className="bg-cream min-h-screen">
+      {/* PAGE HEADER */}
+      <header className="bg-espresso py-10 px-6 relative overflow-hidden">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center">
+          <div className="z-10">
+            <nav className="mb-4">
+              <span className="text-[12px] font-sans text-parchment/40 uppercase tracking-widest">
+                <Link to="/" className="hover:text-gold transition-colors">Home</Link> / <span className="text-parchment/60 font-bold">My Library</span>
+              </span>
+            </nav>
+            <h1 className="font-serif text-5xl text-cream font-bold mb-1">My Library</h1>
+            <p className="font-sans text-sm italic text-parchment/60">Welcome back, {user.name.split(' ')[0]}.</p>
+            
+            <div className="mt-6 flex flex-wrap gap-6">
+              <div className="bg-parchment/10 border border-parchment/20 rounded-none px-4 py-2 flex items-center gap-2">
+                <BookOpen size={14} className="text-parchment/70" />
+                <span className="text-[12px] font-sans text-parchment/70 font-medium">{stats.active} Active Loans</span>
+              </div>
+              <div className="bg-parchment/10 border border-red-400/40 rounded-none px-4 py-2 flex items-center gap-2 text-red-300">
+                <AlertCircle size={14} />
+                <span className="text-[12px] font-sans font-medium">{stats.overdue} Overdue</span>
+              </div>
+              <div className="bg-parchment/10 border border-parchment/20 rounded-none px-4 py-2 flex items-center gap-2">
+                <IndianRupee size={14} className="text-parchment/70" />
+                <span className="text-[12px] font-sans text-parchment/70 font-medium">₹{stats.fines} Fines Due</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Library Card Badge */}
+          <div className="hidden lg:block bg-parchment/10 border border-parchment/20 rounded-none px-6 py-4 absolute right-12 top-1/2 -translate-y-1/2">
+             <div className="flex items-center gap-2 mb-2">
+                <CreditCard size={14} className="text-gold" />
+                <span className="text-[10px] font-sans uppercase tracking-[0.2em] text-parchment/50 font-bold">Library Card</span>
+             </div>
+             <div className="font-mono text-xl text-cream font-bold tracking-[0.15em] mb-1">
+                {user.cardId}
+             </div>
+             <div className="text-[11px] font-sans text-parchment/40 font-medium uppercase tracking-wider">
+                {user.name}
+             </div>
+          </div>
+        </div>
+      </header>
+
+      {/* STICKY TAB ROW */}
+      <div className="bg-parchment border-b border-border-warm sticky top-[64px] z-40">
+        <div className="max-w-5xl mx-auto px-6 flex">
+          {['active loans', 'borrow history', 'reading progress'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`
+                px-8 py-4 text-[12px] uppercase tracking-[0.15em] font-sans transition-all
+                ${activeTab === tab 
+                  ? 'text-ink font-bold border-b-2 border-brown bg-cream' 
+                  : 'text-ink-muted hover:text-ink hover:bg-cream/50'}
+              `}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <main className="max-w-5xl mx-auto px-6 py-8 pb-20">
+        {activeTab === 'active loans' && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {/* Filter Row */}
+            <div className="flex gap-2 mb-8">
+              {['All', 'Active', 'Overdue'].map(filter => (
+                <button
+                  key={filter}
+                  onClick={() => setLoanFilter(filter)}
+                  className={`
+                    px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest font-sans font-bold transition-all
+                    ${loanFilter === filter 
+                      ? 'bg-espresso text-cream' 
+                      : 'bg-parchment border border-border-warm text-ink-muted hover:border-brown hover:text-brown'}
+                  `}
+                >
+                  {filter}
+                </button>
+              ))}
+            </div>
+
+            {filteredLoans.length > 0 ? (
+              <div className="space-y-4">
+                {filteredLoans.map(loan => {
+                  const book = books.find(b => b.id === loan.bookId);
+                  const progress = mockProgress[loan.bookId] || { percent: 0, pagesRead: 0 };
+                  const daysRemaining = calculateDaysRemaining(loan.dueDate);
+                  const isOverdue = daysRemaining < 0;
+                  const isDueSoon = daysRemaining >= 0 && daysRemaining <= 3;
+
+                  return (
+                    <div key={loan.id} className="bg-parchment border border-border-warm flex overflow-hidden group hover:border-brown/40 transition-colors">
+                      <div className="w-20 shrink-0">
+                         <BookCover book={book} className="w-full h-full shadow-none !rounded-none" />
+                      </div>
+                      
+                      <div className="flex-1 px-5 py-4 min-w-0">
+                         <h3 className="font-serif text-lg font-bold text-ink truncate group-hover:text-brown transition-colors">
+                            {book.title}
+                         </h3>
+                         <p className="font-sans text-xs italic text-ink-muted mb-4">by {book.author}</p>
+                         
+                         <div className="flex flex-wrap gap-x-8 gap-y-2 mb-4">
+                            <div className="flex items-center gap-2">
+                               <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted">Borrowed</span>
+                               <span className="text-xs font-sans text-ink">{loan.borrowedAt}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                               <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted">Due</span>
+                               <span className={`text-xs font-sans font-bold ${isOverdue ? 'text-red-600' : isDueSoon ? 'text-amber-600' : 'text-ink'}`}>
+                                 {loan.dueDate}
+                                 {isOverdue && <span className="text-red-500 font-normal ml-1">({Math.abs(daysRemaining)} days overdue)</span>}
+                                 {isDueSoon && <span className="text-amber-500 font-normal ml-1">(due soon)</span>}
+                               </span>
+                            </div>
+                         </div>
+
+                         <div className="space-y-1.5">
+                            <div className="flex justify-between items-center text-[10px] font-sans text-ink-muted uppercase tracking-widest font-bold">
+                               <span>Reading progress</span>
+                               <span className="text-brown">{progress.percent}%</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-border-warm">
+                               <div 
+                                className="h-full bg-brown transition-all duration-1000" 
+                                style={{ width: `${progress.percent}%` }}
+                               />
+                            </div>
+                         </div>
+                      </div>
+
+                      <div className="w-36 shrink-0 border-l border-border-warm p-4 flex flex-col justify-between items-end bg-cream/30">
+                         <div className={`text-[9px] font-sans font-bold uppercase tracking-[0.15em] px-2.5 py-1 border ${isOverdue ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
+                            {loan.status}
+                         </div>
+                         
+                         <div className="text-right">
+                            <div className={`font-serif text-2xl font-bold leading-none ${isOverdue ? 'text-red-600' : 'text-ink'}`}>
+                               {Math.abs(daysRemaining)} days
+                            </div>
+                            <div className={`text-[10px] font-sans font-bold uppercase tracking-widest ${isOverdue ? 'text-red-400' : 'text-ink-muted'}`}>
+                               {isOverdue ? 'overdue' : 'remaining'}
+                            </div>
+                         </div>
+
+                         <div className="w-full space-y-1">
+                            <button className="w-full bg-espresso text-cream text-[10px] font-sans font-bold uppercase tracking-wider py-2 hover:bg-espresso-light transition-colors">
+                               Return Book
+                            </button>
+                            {isOverdue && (
+                              <button 
+                                onClick={() => navigate('/fines')}
+                                className="w-full bg-red-50 text-red-700 border border-red-200 text-[10px] font-sans font-bold uppercase tracking-wider py-1.5 hover:bg-red-100 transition-colors"
+                              >
+                                Pay Fine
+                              </button>
+                            )}
+                         </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-20 flex flex-col items-center text-center">
+                 <div className="w-20 h-20 rounded-full bg-parchment flex items-center justify-center mb-6">
+                    <BookOpen size={40} className="text-border-deep" />
+                 </div>
+                 <h2 className="font-serif text-2xl font-bold text-ink mb-2">No active loans found</h2>
+                 <p className="font-sans text-sm text-ink-muted max-w-xs mb-8">Your reading queue is currently empty. Explore our collection to find your next great read.</p>
+                 <Link to="/catalogue" className="bg-espresso text-cream px-10 py-4 font-sans font-bold uppercase tracking-widest text-xs hover:bg-espresso-light transition-all">
+                    Browse Catalogue
+                 </Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'borrow history' && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+             <div className="mb-6 relative w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" size={14} />
+                <input 
+                  type="text" 
+                  placeholder="Search your history..."
+                  className="w-full bg-cream border border-border-warm rounded-none pl-10 pr-4 py-2.5 text-[13px] font-sans focus:outline-none focus:border-brown placeholder:italic"
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                />
+             </div>
+
+             <div className="bg-parchment border border-border-warm overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                   <thead>
+                      <tr className="bg-espresso text-parchment/70 text-[10px] uppercase tracking-[0.2em] font-sans">
+                         <th className="py-4 px-6 font-bold">Volume</th>
+                         <th className="py-4 px-6 font-bold">Borrowed</th>
+                         <th className="py-4 px-6 font-bold">Due Date</th>
+                         <th className="py-4 px-6 font-bold">Returned</th>
+                         <th className="py-4 px-6 font-bold">Status</th>
+                         <th className="py-4 px-6 font-bold">Fine</th>
+                      </tr>
+                   </thead>
+                   <tbody>
+                      {historyLoans.map(loan => {
+                        const book = books.find(bk => bk.id === loan.bookId);
+                        const isOverdue = loan.status === 'overdue' || (loan.returnedAt && new Date(loan.returnedAt) > new Date(loan.dueDate));
+                        
+                        return (
+                          <tr key={loan.id} className="border-b border-border-warm last:border-none group hover:bg-cream/50 transition-colors">
+                             <td className="py-4 px-6">
+                                <div className="flex items-center gap-4">
+                                   <div className="w-10 h-14 shrink-0 overflow-hidden shadow-sm">
+                                      <BookCover book={book} className="w-full h-full !rounded-none scale-110" />
+                                   </div>
+                                   <div>
+                                      <div className="text-sm font-sans font-bold text-ink group-hover:text-brown transition-colors">{book.title}</div>
+                                      <div className="text-[11px] font-sans text-ink-muted italic">by {book.author}</div>
+                                   </div>
+                                </div>
+                             </td>
+                             <td className="py-4 px-6 text-[12px] font-sans text-ink">{loan.borrowedAt}</td>
+                             <td className="py-4 px-6 text-[12px] font-sans text-ink">{loan.dueDate}</td>
+                             <td className="py-4 px-6 text-[12px] font-sans text-ink">{loan.returnedAt || '—'}</td>
+                             <td className="py-4 px-6">
+                                <span className={`text-[9px] font-sans font-bold uppercase tracking-widest px-2 py-0.5 border ${
+                                  loan.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' :
+                                  loan.status === 'overdue' ? 'bg-red-50 text-red-700 border-red-200' :
+                                  'bg-parchment-dark text-ink-muted border-border-warm'
+                                }`}>
+                                   {loan.status}
+                                </span>
+                             </td>
+                             <td className="py-4 px-6 text-[12px] font-sans font-bold">
+                                {isOverdue ? <span className="text-red-600">₹9.50</span> : <span className="text-ink-muted">—</span>}
+                             </td>
+                          </tr>
+                        );
+                      })}
+                   </tbody>
+                </table>
+             </div>
+          </div>
+        )}
+
+        {activeTab === 'reading progress' && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+             <div className="flex justify-between items-center mb-8 pb-4 border-b border-border-warm">
+                <h2 className="font-serif text-2xl font-bold text-ink">Your Reading Journey</h2>
+                <div className="text-[13px] font-sans text-ink-muted">
+                   {Object.keys(mockProgress).length} levels tracked · 1 volume complete
+                </div>
+             </div>
+
+             {/* Overall Progress Card */}
+             <div className="bg-espresso text-cream rounded-none p-8 mb-12 flex flex-col md:flex-row items-center gap-12">
+                <div className="shrink-0 flex flex-col items-center">
+                   <ProgressRing percent={45} size={110} strokeWidth={6} />
+                   <span className="text-[10px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/40 mt-4">Avg. Completion</span>
+                </div>
+                
+                <div className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-10 w-full text-center md:text-left">
+                   <div>
+                      <div className="font-serif text-4xl font-bold text-gold mb-1">5</div>
+                      <div className="text-[10px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/40">Books Tracked</div>
+                   </div>
+                   <div>
+                      <div className="font-serif text-4xl font-bold text-gold mb-1">612</div>
+                      <div className="text-[10px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/40">Pages Read</div>
+                   </div>
+                   <div>
+                      <div className="font-serif text-4xl font-bold text-gold mb-1">1</div>
+                      <div className="text-[10px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/40">Volume Completed</div>
+                   </div>
+                </div>
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {Object.entries(mockProgress).map(([bookId, progress]) => {
+                  const book = books.find(b => b.id === parseInt(bookId));
+                  const isCompleted = progress.percent === 100;
+                  
+                  return (
+                    <div key={bookId} className="bg-parchment border border-border-warm p-5 flex gap-5 group hover:border-brown/40 transition-colors">
+                       <div className="w-14 shrink-0 shadow-md transform group-hover:scale-105 transition-transform">
+                          <BookCover book={book} className="w-full h-full !rounded-none" />
+                       </div>
+                       <div className="flex-1 min-w-0">
+                          <h4 className="font-serif text-[15px] font-bold text-ink truncate group-hover:text-brown transition-colors">{book.title}</h4>
+                          <p className="font-sans text-[11px] italic text-ink-muted mb-3">by {book.author}</p>
+                          
+                          <div className="space-y-2 mt-auto">
+                             <div className="h-2 w-full bg-border-warm">
+                                <div 
+                                  className={`h-full transition-all duration-1000 ${isCompleted ? 'bg-green-600' : 'bg-brown'}`} 
+                                  style={{ width: `${progress.percent}%` }}
+                                />
+                             </div>
+                             <div className="flex justify-between items-center">
+                                <span className={`text-xs font-bold ${isCompleted ? 'text-green-700' : 'text-brown'}`}>{progress.percent}%</span>
+                                <span className="text-[11px] font-sans text-ink-muted">{progress.pagesRead} of {book.pages} pages</span>
+                             </div>
+                             
+                             {isCompleted && (
+                               <div className="inline-flex mt-2 items-center gap-1.5 bg-green-50 text-green-700 border border-green-100 text-[10px] font-sans font-bold uppercase tracking-widest px-2 py-0.5">
+                                  <CheckCircle size={10} /> Volume Completed
+                               </div>
+                             )}
+                          </div>
+                       </div>
+                    </div>
+                  );
+                })}
+             </div>
+          </div>
+        )}
+      </main>
+
+      {/* Simplified academic footer for member area */}
+      <footer className="bg-espresso py-8 border-t border-parchment/10 text-center">
+         <p className="text-[10px] font-sans text-parchment/30 uppercase tracking-[0.3em]">
+            Institutional Member · BookVault Library Portal · Est. 1987
+         </p>
+      </footer>
+    </div>
+  );
+};
+
+export default MyLibrary;

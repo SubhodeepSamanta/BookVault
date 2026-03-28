@@ -188,10 +188,51 @@ const AuthModal = () => {
 
           <button
             type="submit"
-            className="w-full bg-espresso text-cream font-sans font-semibold py-3.5 tracking-[0.15em] uppercase text-sm mt-2 hover:bg-espresso-light transition-colors"
+            className="w-full bg-espresso text-cream py-4 font-sans font-bold uppercase tracking-[0.2em] text-xs hover:bg-black transition-all shadow-lg active:scale-[0.98]"
           >
             {authModalMode === 'login' ? 'Sign In' : 'Create Account'}
           </button>
+
+          <div className="my-6 flex items-center gap-4">
+            <div className="h-px bg-border-warm flex-1" />
+            <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted">Demo Logins</span>
+            <div className="h-px bg-border-warm flex-1" />
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                login({ 
+                  id: 1, 
+                  name: 'Alex Johnson', 
+                  email: 'alex@uni.edu', 
+                  role: 'student', 
+                  cardId: 'BV-2024-00042' 
+                });
+                closeAuthModal();
+              }}
+              className="flex-1 border border-border-warm text-ink-muted text-[11px] font-sans font-bold uppercase tracking-widest py-3 hover:border-brown hover:text-brown transition-all"
+            >
+              Student
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                login({ 
+                  id: 99, 
+                  name: 'Dr. Sarah Malik', 
+                  email: 'admin@bookvault.edu', 
+                  role: 'admin', 
+                  cardId: 'BV-ADMIN-001' 
+                });
+                closeAuthModal();
+              }}
+              className="flex-1 border border-brown text-brown text-[11px] font-sans font-bold uppercase tracking-widest py-3 hover:bg-brown hover:text-cream transition-all"
+            >
+              Admin
+            </button>
+          </div>
           
           <div className="mt-4 pt-4 border-t border-border-warm flex flex-col items-center">
             <p className="font-serif italic text-[11px] text-ink-muted text-center max-w-[240px]">
