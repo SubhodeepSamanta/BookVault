@@ -21,8 +21,8 @@ import Content from './pages/admin/Content';
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <ToastProvider>
+      <ToastProvider>
+        <AuthProvider>
           <div className="flex flex-col min-h-screen bg-cream selection:bg-gold/30">
             {/* Global UI Elements (Modals & Toasts) */}
             <AuthModal />
@@ -65,8 +65,8 @@ function App() {
               </Route>
             </Routes>
           </div>
-        </ToastProvider>
-      </AuthProvider>
+        </AuthProvider>
+      </ToastProvider>
     </Router>
   );
 }
