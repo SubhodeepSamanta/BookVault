@@ -33,8 +33,8 @@ exports.getAllBooks = async (req, res) => {
 
     const attributes = {
       include: [
-        [sequelize.fn('AVG', sequelize.col('Reviews.rating')), 'avg_rating'],
-        [sequelize.fn('COUNT', sequelize.col('Reviews.id')), 'review_count']
+        [sequelize.fn('ROUND', sequelize.fn('AVG', sequelize.col('Reviews.rating')), 1), 'rating'],
+        [sequelize.fn('COUNT', sequelize.col('Reviews.id')), 'rating_count']
       ]
     }
 
@@ -79,10 +79,12 @@ exports.getBookById = async (req, res) => {
 
     const bookData = book.toJSON()
     const reviews = bookData.Reviews || []
-    bookData.review_count = reviews.length
-    bookData.avg_rating = reviews.length > 0 
+    bookData.rating_count = reviews.length
+    bookData.rating = reviews.length > 0 
       ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
       : 0
+    bookData.avg_rating = bookData.rating // Keep for safety
+    bookData.review_count = bookData.rating_count
 
     res.json({ book: bookData })
   } catch (err) {
@@ -105,10 +107,12 @@ exports.getFeaturedBook = async (req, res) => {
 
     const bookData = book.toJSON()
     const reviews = bookData.Reviews || []
-    bookData.review_count = reviews.length
-    bookData.avg_rating = reviews.length > 0 
+    bookData.rating_count = reviews.length
+    bookData.rating = reviews.length > 0 
       ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
       : 0
+    bookData.avg_rating = bookData.rating // Keep for safety
+    bookData.review_count = bookData.rating_count
 
     res.json({ book: bookData })
   } catch (err) {

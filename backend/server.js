@@ -11,9 +11,9 @@ async function start() {
     await sequelize.authenticate()
     console.log('Database connected.')
     
-    // sync all models — alter:true is safe for 
-    // development and minor changes in production
-    await sequelize.sync({ alter: true })
+    // sync all models — simple sync is safer for 
+    // TiDB initialization than alter:true
+    await sequelize.sync()
     console.log('Models synced.')
     
     // seed admin + branches + sample books on first run

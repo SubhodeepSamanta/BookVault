@@ -50,7 +50,11 @@ exports.getDashboardStats = async (req, res) => {
         where: { paid: false },
         limit: 5,
         include: [
-          { model: Book, attributes: ['title'] },
+          { 
+            model: Borrow, 
+            attributes: ['id'],
+            include: [{ model: Book, attributes: ['title'] }] 
+          },
           { model: User, attributes: ['name'] }
         ]
       }),

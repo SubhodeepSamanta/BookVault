@@ -1,10 +1,10 @@
 const bcrypt = require('bcryptjs')
-const { User, Book, Branch } = require('../models')
+const { User, Book, Branch, Review } = require('../models')
 
 async function seedDatabase() {
   // 1. ADMIN ACCOUNT
-  const adminExists = await User.findOne({ 
-    where: { email: 'bookvaultadmin@gmail.com' } 
+  const adminExists = await User.findOne({
+    where: { email: 'bookvaultadmin@gmail.com' }
   })
   if (!adminExists) {
     const hashed = await bcrypt.hash('12345678', 12)
@@ -20,19 +20,27 @@ async function seedDatabase() {
 
   // 2. BRANCHES (3 branches)
   const branchData = [
-    { name: 'Main Campus Library', 
+    {
+      name: 'Main Campus Library',
       address: 'Block A, University Road',
-      open_time: '08:00:00', close_time: '21:00:00' },
-    { name: 'North Wing Reading Centre',
+      open_time: '08:00:00', close_time: '21:00:00'
+    },
+    {
+      name: 'North Wing Reading Centre',
       address: 'Block C, North Campus',
-      open_time: '09:00:00', close_time: '19:00:00' },
-    { name: 'South Block Library',
+      open_time: '09:00:00', close_time: '19:00:00'
+    },
+    {
+      name: 'South Block Library',
       address: 'Block F, South Campus',
-      open_time: '10:00:00', close_time: '18:00:00' },
+      open_time: '10:00:00', close_time: '18:00:00'
+    },
   ]
   for (const b of branchData) {
-    await Branch.findOrCreate({ where: { name: b.name },
-      defaults: b })
+    await Branch.findOrCreate({
+      where: { name: b.name },
+      defaults: b
+    })
   }
 
   // 3. SAMPLE BOOKS (20 books)
@@ -178,7 +186,7 @@ async function seedDatabase() {
       },
       {
         title: 'Clean Code',
-        author: Robert C. Martin',
+        author: 'Robert C. Martin',
         isbn: '978-0-132-35088-4',
         genre: 'Technology',
         description: 'A handbook of agile software craftsmanship. Martin presents best practices for writing clean, readable, and maintainable code that every developer should know.',
@@ -383,6 +391,71 @@ async function seedDatabase() {
     ])
     console.log('Sample books seeded.')
   }
+
+  // 4. MASSIVE STUDENTS SEED (20+ students)
+  const studentNames = [
+    'Alice Smith', 'Bob Johnson', 'Charlie Brown', 'Daisy Ridley', 'Edward Norton',
+    'Fiona Apple', 'George Harrison', 'Hannah Montana', 'Ian McKellen', 'Jane Austen',
+    'Kevin Hart', 'Lila Downs', 'Mark Twain', 'Neil Armstrong', 'Olivia Wilde',
+    'Peter Parker', 'Quentin Tarantino', 'Rita Hayworth', 'Steven Spielberg', 'Tina Fey',
+    'Ursula Corbero', 'Victor Hugo', 'Wanda Maximoff', 'Xena Warrior', 'Yolanda Hadid', 'Zoe Kravitz'
+  ]
+  
+  for (const name of studentNames) {
+    const email = `${name.toLowerCase().replace(' ', '.')}@univ.edu`
+    const hashed = await bcrypt.hash('12345678', 12)
+    const random = Math.floor(Math.random() * 90000) + 10000
+    const cardId = `BV-2026-${random}`
+    
+    await User.findOrCreate({
+      where: { email },
+      defaults: {
+        name,
+        email,
+        password: hashed,
+        role: 'student',
+        card_id: cardId,
+        status: 'active'
+      }
+    })
+  }
+  console.log('Massive student population seeded.')
+
+  // 5. MASSIVE REVIEWS SEED (Random reviews for each book)
+  const comments = [
+    "A masterpiece of literature. Must read!",
+    "Vivid storytelling and deep characters.",
+    "I enjoyed this volume immensely.",
+    "A bit slow in the middle, but the ending was worth it.",
+    "Found some parts confusing, but the overall message is powerful.",
+    "Superb! I recommend this to all my peers.",
+    "Essential reading for my current course.",
+    "The writing style is elegant and timeless.",
+    "Informative and thought-provoking.",
+    "A truly eye-opening exploration of its themes."
+  ]
+
+  const students = await User.findAll({ where: { role: 'student' } })
+  const books = await Book.findAll()
+
+  for (const book of books) {
+    const reviewCount = await Review.count({ where: { book_id: book.id } })
+    if (reviewCount === 0) {
+      // Pick 3-5 random students to leave a review
+      const shuffled = students.sort(() => 0.5 - Math.random())
+      const reviewers = shuffled.slice(0, Math.floor(Math.random() * 3) + 3)
+      
+      for (const student of reviewers) {
+        await Review.create({
+          user_id: student.id,
+          book_id: book.id,
+          rating: Math.floor(Math.random() * 2) + 4, // 4 or 5 stars
+          comment: comments[Math.floor(Math.random() * comments.length)]
+        })
+      }
+    }
+  }
+  console.log('Massive review collection generated.')
 
   console.log('Database seeding complete.')
 }
