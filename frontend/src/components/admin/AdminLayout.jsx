@@ -41,7 +41,7 @@ const AdminLayout = ({ children, title }) => {
         {/* TOP: Logo Area */}
         <div className="px-6 py-8 border-b border-parchment/10">
           <Link to="/" className="flex items-center gap-2">
-            <BookOpen className="text-gold stroke-[1.5]" size={22} />
+            <img src="/logo.png" alt="BookVault" className="w-7 h-7 object-contain" />
             <div className="flex items-baseline font-serif text-[20px] tracking-tight">
               <span className="text-white font-normal">Book</span>
               <span className="text-gold-light font-bold">Vault</span>

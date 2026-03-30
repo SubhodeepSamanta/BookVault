@@ -21,7 +21,7 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-6 flex items-center justify-between w-full h-full">
         {/* LEFT: Logo */}
         <Link to="/" className="flex items-center gap-2 group">
-          <BookOpen className="text-gold stroke-[1.5] group-hover:scale-110 transition-transform" size={24} />
+          <img src="/logo.png" alt="BookVault" className="w-8 h-8 object-contain group-hover:scale-110 transition-transform" />
           <div className="flex items-baseline font-serif text-[22px] tracking-tight">
             <span className="text-white font-normal">Book</span>
             <span className="text-gold-light font-bold">Vault</span>
