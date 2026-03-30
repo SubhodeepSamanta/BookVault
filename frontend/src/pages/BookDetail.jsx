@@ -22,7 +22,9 @@ import BookCover from '../components/BookCover';
 import BookCard from '../components/BookCard';
 import StarRating from '../components/StarRating';
 import StarPicker from '../components/StarPicker';
+import ReserveModal from '../components/ReserveModal';
 import ProgressRing from '../components/ProgressRing';
+
 
 const BookDetail = () => {
   const { id } = useParams();
@@ -41,6 +43,8 @@ const BookDetail = () => {
   const [revComment, setRevComment] = useState('');
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  
+  const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchBookData = async () => {
@@ -93,20 +97,28 @@ const BookDetail = () => {
 
   const isAvailable = book.available_copies > 0;
 
-  const handleBorrow = async () => {
+  const handleReserveClick = () => {
     if (!user) {
       openAuthModal('login');
       return;
     }
-    
+    if (!isAvailable) {
+      handleJoinWaitlist();
+      return;
+    }
+    setIsReserveModalOpen(true);
+  };
+
+  const handleReserveSubmit = async (reservationData) => {
     try {
-      await api.post('/borrows', { bookId: book.id });
-      addToast(`Successfully borrowed "${book.title}"!`, 'success');
+      await api.post('/borrows', reservationData);
+      addToast(`Successfully reserved "${book.title}" for pickup!`, 'success');
       // Refresh book data
       const res = await api.get(`/books/${id}`);
       setBook(res.data.book);
     } catch (err) {
-      addToast(err.response?.data?.error || 'Failed to borrow book', 'error');
+      addToast(err.response?.data?.error || 'Failed to complete reservation', 'error');
+      throw err; // Re-throw for modal submitting state
     }
   };
 
@@ -167,12 +179,12 @@ const BookDetail = () => {
       </div>
 
       {/* MAIN CONTENT */}
-      <div className="max-w-7xl mx-auto px-6 py-12 flex flex-col lg:flex-row gap-12">
+      <div className="max-w-7xl mx-auto px-6 pt-32 pb-12 flex flex-col lg:flex-row gap-12">
         
         {/* LEFT COLUMN: Actions */}
-        <aside className="w-full lg:w-[320px] flex-shrink-0 animate-in fade-in slide-in-from-left-4 duration-500">
+        <aside className="w-full lg:w-[320px] flex-shrink-0 lg:pt-8 animate-in fade-in slide-in-from-left-4 duration-500">
           <div className="lg:sticky lg:top-24">
-            <BookCover book={book} className="w-full shadow-2xl rounded-none" />
+            <BookCover book={book} className="w-full shadow-2xl rounded-none" size="xl" />
             
             <div className="mt-8 space-y-6">
               <div className="p-4 bg-parchment/50 border border-border-warm">
@@ -197,39 +209,42 @@ const BookDetail = () => {
                   />
                 </div>
                 {!isAvailable && (
-                  <button 
-                    onClick={handleJoinWaitlist}
-                    className="w-full mt-4 py-2 text-xs font-sans font-bold text-brown uppercase tracking-widest border border-brown/30 hover:bg-brown/5 transition-colors"
-                  >
-                    Join the waitlist
-                  </button>
+                  <p className="mt-4 text-[10px] text-ink-muted italic font-sans leading-relaxed">
+                    Physical collections are currently at maximum capacity. Join the digital waitlist to be notified of availability.
+                  </p>
                 )}
               </div>
 
               <div className="flex flex-col gap-2">
-                <button 
-                  onClick={handleBorrow}
-                  className="w-full bg-espresso text-cream py-4 font-sans font-semibold uppercase tracking-[0.1em] text-sm hover:bg-espresso-light transition-all flex items-center justify-center gap-3"
-                >
-                  Borrow This Book
-                </button>
-                
-                <button className="w-full border border-espresso text-espresso py-3.5 font-sans font-medium uppercase tracking-[0.05em] text-sm hover:bg-espresso hover:text-cream transition-all">
-                  Reserve for Pickup
-                </button>
+                {isAvailable ? (
+                  <button 
+                    onClick={handleReserveClick}
+                    className="w-full bg-espresso text-cream py-4 font-sans font-bold uppercase tracking-[0.2em] text-xs hover:bg-espresso-light transition-all flex items-center justify-center gap-3 shadow-xl"
+                  >
+                    Reserve for Pickup
+                  </button>
+                ) : (
+                  <button 
+                    onClick={handleJoinWaitlist}
+                    className="w-full bg-brown text-cream py-4 font-sans font-bold uppercase tracking-[0.2em] text-xs hover:bg-brown-light transition-all flex items-center justify-center gap-3 shadow-lg"
+                  >
+                    Join Academic Waitlist
+                  </button>
+                )}
 
                 {book.gutenberg_url && (
                   <a 
                     href={book.gutenberg_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full border border-brown text-brown py-3.5 font-sans font-medium uppercase tracking-[0.05em] text-sm hover:bg-brown hover:text-cream transition-all flex items-center justify-center gap-2"
+                    className="w-full border border-brown/30 text-brown py-3.5 font-sans font-medium uppercase tracking-[0.05em] text-xs hover:bg-brown/5 transition-all flex items-center justify-center gap-2 mt-2"
                   >
                     <Download size={16} />
-                    Download Free PDF
+                    Access Digital Volume
                   </a>
                 )}
               </div>
+
 
               {user && (
                 <div className="bg-parchment border border-border-warm p-4 group transition-colors hover:border-brown/40">
@@ -534,6 +549,12 @@ const BookDetail = () => {
           </div>
         </main>
       </div>
+      <ReserveModal 
+        isOpen={isReserveModalOpen}
+        onClose={() => setIsReserveModalOpen(false)}
+        book={book}
+        onReserve={handleReserveSubmit}
+      />
     </div>
   );
 };

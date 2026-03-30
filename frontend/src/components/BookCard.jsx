@@ -14,7 +14,7 @@ const BookCard = ({ book }) => {
       className="bg-parchment border border-border-warm hover:border-brown hover:shadow-md transition-all duration-300 cursor-pointer group flex flex-col"
     >
       <div className="relative aspect-[2/3] overflow-hidden">
-        <BookCover book={book} className="w-full h-full" />
+        <BookCover book={book} className="w-full h-full" size="sm" />
         
         {/* Badges */}
         <div className="absolute top-2 left-2">
@@ -50,8 +50,8 @@ const BookCard = ({ book }) => {
         <div className="mt-auto">
           <div className="flex items-center gap-1.5 text-[10px] text-ink-muted">
             <StarRating rating={book.rating} size={10} />
-            <span>{book.rating}</span>
-            <span>({book.rating_count})</span>
+            <span>{Number(book.rating || 0).toFixed(1)}</span>
+            <span>({book.rating_count || 0})</span>
           </div>
           
           <div className="mt-3 pt-3 border-t border-border-warm flex items-center justify-between">

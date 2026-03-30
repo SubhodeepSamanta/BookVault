@@ -59,6 +59,9 @@ Fine.belongsTo(Borrow, { foreignKey: 'borrow_id' })
 Branch.hasMany(Pickup, { foreignKey: 'branch_id' })
 Pickup.belongsTo(Branch, { foreignKey: 'branch_id' })
 
+Branch.hasMany(Borrow, { foreignKey: 'branch_id' })
+Borrow.belongsTo(Branch, { foreignKey: 'branch_id' })
+
 module.exports = {
   sequelize,
   User,

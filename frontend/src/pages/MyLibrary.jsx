@@ -28,6 +28,11 @@ const MyLibrary = () => {
   const [historySearch, setHistorySearch] = useState('');
   const [loanFilter, setLoanFilter] = useState('All');
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedBook, setSelectedBook] = useState(null);
+  const [pagesReadInput, setPagesReadInput] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   useEffect(() => {
     if (!user) { 
       navigate('/'); 
@@ -58,6 +63,50 @@ const MyLibrary = () => {
     };
     fetchData();
   }, [user, navigate, openAuthModal]);
+
+  const handleUpdateProgress = (book, currentProgress) => {
+    setSelectedBook(book);
+    setPagesReadInput(currentProgress?.pages_read || '');
+    setIsModalOpen(true);
+  };
+
+  const submitProgress = async () => {
+    if (!pagesReadInput || isNaN(pagesReadInput)) {
+      addToast('Please enter a valid page number', 'error');
+      return;
+    }
+    
+    if (parseInt(pagesReadInput) > selectedBook.pages) {
+      addToast(`Max pages for this book is ${selectedBook.pages}`, 'error');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await api.post('/progress/upsert', {
+        bookId: selectedBook.id,
+        pages_read: parseInt(pagesReadInput)
+      });
+      
+      const updatedProgress = res.data.progress;
+      
+      // Update local state
+      setProgressData(prev => {
+        const exists = prev.find(p => p.book_id === updatedProgress.book_id);
+        if (exists) {
+          return prev.map(p => p.book_id === updatedProgress.book_id ? updatedProgress : p);
+        }
+        return [updatedProgress, ...prev];
+      });
+
+      addToast(`Progress updated to ${updatedProgress.percent}%`, 'success');
+      setIsModalOpen(false);
+    } catch (err) {
+      addToast(err.response?.data?.error || 'Failed to update progress', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (!user || loading) {
     return (
@@ -93,6 +142,9 @@ const MyLibrary = () => {
       // Refresh data
       const res = await api.get('/borrows/my');
       setBorrows(res.data.borrows);
+      // Also refresh progress since returned books can't be updated
+      const progRes = await api.get('/progress/my');
+      setProgressData(progRes.data.progress);
     } catch (err) {
       addToast(err.response?.data?.error || 'Failed to return book', 'error');
     }
@@ -187,7 +239,7 @@ const MyLibrary = () => {
               <div className="space-y-4">
                 {filteredLoans.map(loan => {
                   const book = loan.Book;
-                  const progress = progressData.find(p => p.book_id === loan.book_id) || { percent: 0 };
+                  const progress = progressData.find(p => p.book_id === loan.book_id) || { percent: 0, pages_read: 0 };
                   const daysRemaining = calculateDaysRemaining(loan.due_date);
                   const isOverdue = daysRemaining < 0;
                   const isDueSoon = daysRemaining >= 0 && daysRemaining <= 3;
@@ -199,9 +251,17 @@ const MyLibrary = () => {
                       </div>
                       
                       <div className="flex-1 px-5 py-4 min-w-0">
-                         <h3 className="font-serif text-lg font-bold text-ink truncate group-hover:text-brown transition-colors">
-                            {book.title}
-                         </h3>
+                         <div className="flex justify-between items-start">
+                            <h3 className="font-serif text-lg font-bold text-ink truncate group-hover:text-brown transition-colors">
+                               {book.title}
+                            </h3>
+                            <button 
+                              onClick={() => handleUpdateProgress(book, progress)}
+                              className="text-[10px] font-sans font-bold uppercase tracking-widest text-brown hover:text-espresso transition-colors"
+                            >
+                              Update Progress
+                            </button>
+                         </div>
                          <p className="font-sans text-xs italic text-ink-muted mb-4">by {book.author}</p>
                          
                          <div className="flex flex-wrap gap-x-8 gap-y-2 mb-4">
@@ -392,7 +452,17 @@ const MyLibrary = () => {
                           <BookCover book={book} className="w-full h-full !rounded-none" />
                        </div>
                        <div className="flex-1 min-w-0">
-                          <h4 className="font-serif text-[15px] font-bold text-ink truncate group-hover:text-brown transition-colors">{book.title}</h4>
+                          <div className="flex justify-between items-start mb-1">
+                             <h4 className="font-serif text-[15px] font-bold text-ink truncate group-hover:text-brown transition-colors">{book.title}</h4>
+                             {activeLoans.find(al => al.book_id === progress.book_id) && (
+                               <button 
+                                onClick={() => handleUpdateProgress(book, progress)}
+                                className="text-[9px] font-sans font-bold uppercase tracking-widest text-brown"
+                               >
+                                 Update
+                               </button>
+                             )}
+                          </div>
                           <p className="font-sans text-[11px] italic text-ink-muted mb-3">by {book.author}</p>
                           
                           <div className="space-y-2 mt-auto">
@@ -402,9 +472,9 @@ const MyLibrary = () => {
                                   style={{ width: `${progress.percent}%` }}
                                 />
                              </div>
-                             <div className="flex justify-between items-center">
-                                <span className={`text-xs font-bold ${isCompleted ? 'text-green-700' : 'text-brown'}`}>{progress.percent}%</span>
-                                <span className="text-[11px] font-sans text-ink-muted">{Math.round((progress.percent / 100) * book.pages)} of {book.pages} pages</span>
+                             <div className="flex justify-between items-center text-[11px] font-sans">
+                                <span className={`font-bold ${isCompleted ? 'text-green-700' : 'text-brown'}`}>{progress.percent}%</span>
+                                <span className="text-ink-muted">{progress.pages_read || 0} of {book.pages} pages</span>
                              </div>
                              
                              {isCompleted && (
@@ -421,6 +491,66 @@ const MyLibrary = () => {
           </div>
         )}
       </main>
+
+      {/* UPDATE PROGRESS MODAL */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-espresso/80 backdrop-blur-sm" onClick={() => !isSubmitting && setIsModalOpen(false)} />
+          <div className="relative bg-cream w-full max-w-sm border-t-4 border-brown p-8 shadow-2xl animate-in zoom-in-95 duration-300">
+            <h3 className="font-serif text-2xl font-bold text-ink mb-4">Update Reading Progress</h3>
+            <p className="font-sans text-sm text-ink-muted mb-6">How many pages have you read of <span className="font-bold text-ink">"{selectedBook?.title}"</span>?</p>
+            
+            <div className="space-y-6">
+               <div className="relative">
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-sans text-ink-muted bg-parchment px-2 py-1">/ {selectedBook?.pages} pages</span>
+                  <input 
+                    type="number"
+                    value={pagesReadInput}
+                    onChange={(e) => setPagesReadInput(e.target.value)}
+                    placeholder="Enter page number..."
+                    className="w-full bg-parchment border border-border-warm px-4 py-4 pr-32 text-lg font-sans font-bold focus:outline-none focus:border-brown transition-colors"
+                  />
+               </div>
+
+               <div className="bg-parchment/50 p-4 border border-border-warm border-dashed">
+                  <div className="flex justify-between items-center mb-2">
+                     <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted">Estimated Completion</span>
+                     <span className="text-sm font-serif font-bold text-brown">
+                        {pagesReadInput && !isNaN(pagesReadInput) && selectedBook?.pages 
+                          ? Math.min(100, Math.round((parseInt(pagesReadInput) / selectedBook.pages) * 100)) 
+                          : 0}%
+                     </span>
+                  </div>
+                  <div className="h-1 bg-border-warm w-full overflow-hidden">
+                     <div 
+                        className="h-full bg-brown transition-all duration-500" 
+                        style={{ width: `${pagesReadInput && !isNaN(pagesReadInput) && selectedBook?.pages 
+                          ? Math.min(100, Math.round((parseInt(pagesReadInput) / selectedBook.pages) * 100)) 
+                          : 0}%` }}
+                     />
+                  </div>
+               </div>
+
+               <div className="flex gap-4">
+                  <button 
+                    disabled={isSubmitting}
+                    onClick={() => setIsModalOpen(false)}
+                    className="flex-1 py-3 text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-ink-muted hover:text-ink transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    disabled={isSubmitting}
+                    onClick={submitProgress}
+                    className="flex-1 bg-espresso text-cream py-4 text-[11px] font-sans font-bold uppercase tracking-[0.2em] hover:bg-espresso-light transition-all flex items-center justify-center gap-2"
+                  >
+                    {isSubmitting ? <Loader2 className="animate-spin" size={14} /> : 'Record Progress'}
+                  </button>
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <footer className="bg-espresso py-8 border-t border-parchment/10 text-center">
          <p className="text-[10px] font-sans text-parchment/30 uppercase tracking-[0.3em]">

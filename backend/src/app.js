@@ -46,6 +46,7 @@ app.use('/api/notifications', require('./routes/notifications'))
 app.use('/api/progress',      require('./routes/progress'))
 app.use('/api/announcements', require('./routes/announcements'))
 app.use('/api/admin',         require('./routes/admin'))
+app.use('/api/branches',      require('./routes/branches'))
 
 // 404 handler
 app.use((req, res) => {

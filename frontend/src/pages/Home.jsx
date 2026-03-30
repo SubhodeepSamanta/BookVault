@@ -140,23 +140,28 @@ const Home = () => {
             </div>
 
             <div className="relative flex flex-col items-center">
-              <div 
-                className="w-[160px] md:w-[220px] transition-transform duration-700 group-hover:scale-105"
+              <Link 
+                to={`/book/${featuredBook.id}`}
+                className="w-[160px] md:w-[220px] transition-all duration-700 group-hover:scale-105 group-hover:-rotate-1 active:scale-95 z-10"
                 style={{ transform: 'rotate(-3deg)', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}
               >
-                <BookCover book={featuredBook} />
-              </div>
+                <BookCover book={featuredBook} size="lg" />
+              </Link>
               
-              <div className="mt-8 text-center bg-white/40 backdrop-blur-sm p-6 border border-white/60 shadow-sm min-w-[280px]">
-                <h3 className="font-serif text-xl md:text-2xl text-ink font-bold mb-1">{featuredBook.title}</h3>
+              <Link 
+                to={`/book/${featuredBook.id}`}
+                className="mt-8 text-center p-4 min-w-[280px] transition-colors group/feat"
+              >
+                <h3 className="font-serif text-xl md:text-2xl text-ink font-bold mb-1 group-hover/feat:text-brown transition-colors">{featuredBook.title}</h3>
                 <p className="text-sm text-ink-muted italic mb-3">by {featuredBook.author}</p>
                 <div className="flex justify-center mb-3">
                   <StarRating rating={featuredBook.rating} size={14} />
+                  <span className="ml-2 text-xs text-ink-muted">({Number(featuredBook.rating || 0).toFixed(1)})</span>
                 </div>
                 <span className="inline-block bg-brown/10 text-brown text-[10px] uppercase tracking-widest px-3 py-1 rounded-full font-medium">
                   {featuredBook.genre}
                 </span>
-              </div>
+              </Link>
             </div>
           </div>
 
@@ -166,10 +171,16 @@ const Home = () => {
             </div>
             <div className="flex gap-4 md:gap-6">
               {popularBooks.map(book => (
-                <div key={book.id} className="w-[60px] md:w-[80px] flex flex-col gap-2">
-                  <BookCover book={book} />
-                  <p className="text-[10px] font-serif text-ink italic truncate">{book.title}</p>
-                </div>
+                <Link 
+                  key={book.id} 
+                  to={`/book/${book.id}`}
+                  className="w-[60px] md:w-[80px] flex flex-col gap-2 group/pop transition-transform hover:-translate-y-1"
+                >
+                  <BookCover book={book} className="shadow-sm group-hover/pop:shadow-md transition-shadow" size="xs" />
+                  <p className="text-[8px] font-sans font-bold text-ink-muted/80 uppercase tracking-tighter leading-tight line-clamp-2 group-hover/pop:text-brown transition-all">
+                    {book.title}
+                  </p>
+                </Link>
               ))}
             </div>
           </div>
@@ -210,9 +221,12 @@ const Home = () => {
 
           <div className="bg-parchment border border-border-warm flex flex-col md:flex-row overflow-hidden shadow-sm group">
             {/* Left Image */}
-            <div className="w-full md:w-[40%] h-[420px] md:h-auto overflow-hidden">
-               <BookCover book={featuredBook} className="w-full h-full transform group-hover:scale-105 transition-transform duration-700" />
-            </div>
+            <Link 
+              to={`/book/${featuredBook.id}`}
+              className="w-full md:w-[40%] h-[420px] md:h-auto overflow-hidden group/botw"
+            >
+               <BookCover book={featuredBook} className="w-full h-full transform group-hover/botw:scale-110 transition-transform duration-1000" size="xl" />
+            </Link>
             
             {/* Right Content */}
             <div className="w-full md:w-[60%] p-8 md:p-12 flex flex-col">
@@ -231,7 +245,7 @@ const Home = () => {
 
               <div className="flex items-center gap-3 mb-6">
                 <StarRating rating={featuredBook.rating} size={18} />
-                <span className="font-serif font-bold text-lg text-ink">{featuredBook.rating}</span>
+                <span className="font-serif font-bold text-lg text-ink">{Number(featuredBook.rating || 0).toFixed(1)}</span>
                 <span className="text-ink-muted text-sm">({featuredBook.rating_count} verifying reviews)</span>
               </div>
 
@@ -367,7 +381,8 @@ const Home = () => {
                   <p className="text-xs text-ink-muted italic mb-2">by {book.author}</p>
                   <div className="flex items-center gap-2 mb-3">
                     <StarRating rating={book.rating} size={10} />
-                    <span className="text-[10px] font-bold text-ink-soft">{book.rating}</span>
+                    <span className="text-[10px] font-bold text-ink-soft">{Number(book.rating || 0).toFixed(1)}</span>
+                    <span className="text-[10px] text-ink-muted">({book.rating_count || 0})</span>
                   </div>
                   <Link to={`/book/${book.id}`} className="text-brown text-[11px] font-bold uppercase tracking-widest underline underline-offset-4 decoration-brown/30 hover:decoration-brown transition-all">
                     View Details

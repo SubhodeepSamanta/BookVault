@@ -81,19 +81,24 @@ const Fines = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handlePaymentInitiate = (fine) => {
-    setSelectedFine(fine);
-    setShowUPI(true);
-    setPaymentStep('pay');
-    setTimer(180);
-    setIsTimedOut(false);
+  const handlePaymentInitiate = async (fine) => {
+    try {
+      const res = await api.post(`/fines/${fine.id}/pay`);
+      setSelectedFine({ ...fine, ...res.data }); // Merge upiId, reference, etc.
+      setShowUPI(true);
+      setPaymentStep('pay');
+      setTimer(180);
+      setIsTimedOut(false);
+    } catch (err) {
+      addToast(err.response?.data?.error || 'Failed to initiate payment', 'error');
+    }
   };
 
   const handlePaymentConfirm = async () => {
     setPaymentStep('processing');
     try {
-      const res = await api.post(`/fines/${selectedFine.id}/pay`);
-      setTxnId(res.data.fine.transaction_id);
+      const res = await api.put(`/fines/${selectedFine.id}/confirm`);
+      setTxnId(res.data.txnId);
       setTimeout(() => {
         setPaymentStep('success');
       }, 1500);
@@ -223,7 +228,7 @@ const Fines = () => {
                             <h4 className="font-serif text-[15px] font-bold text-ink truncate hover:text-green-800 transition-colors">{fine.Book?.title}</h4>
                          </Link>
                          <p className="text-[11px] font-sans text-green-700 mb-1 font-medium">Paid on {new Date(fine.paid_at).toLocaleDateString()}</p>
-                         <div className="font-mono text-[10px] text-ink-muted">Txn: {fine.transaction_id}</div>
+                         <div className="font-mono text-[10px] text-ink-muted">Txn: {fine.txn_id}</div>
                       </div>
                    </div>
                 </div>

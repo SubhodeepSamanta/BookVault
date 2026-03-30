@@ -1,9 +1,18 @@
 import React from 'react';
 
-const BookCover = ({ book, className = '' }) => {
+const BookCover = ({ book, className = '', size = 'md' }) => {
   if (!book) return null;
 
-  // Handle both nested 'cover' object (if any) and flat database fields
+  // Sizing scale mapping
+  const scales = {
+    'xs': 0.38,
+    'sm': 0.6,
+    'md': 1.0,
+    'lg': 1.25,
+    'xl': 1.5
+  };
+  const scale = scales[size] || 1.0;
+
   const title = book.title;
   const author = book.author;
   const genre = book.genre;
@@ -11,11 +20,26 @@ const BookCover = ({ book, className = '' }) => {
   const accent = book.cover_accent || (book.cover && book.cover.accent) || '#DAA520';
   const text = book.cover_text || (book.cover && book.cover.text) || '#3E2723';
 
-  // Clamp font size based on title length
-  const getTitleClass = (text = '') => {
-    if (text.length < 15) return 'text-xl';
-    if (text.length <= 25) return 'text-base';
-    return 'text-sm';
+  const getTitleStyle = (text = '') => {
+    const len = text.length;
+    let baseSize = 20;
+    if (len > 50) baseSize = 10;
+    else if (len > 35) baseSize = 12;
+    else if (len > 25) baseSize = 14;
+    else if (len > 15) baseSize = 18;
+    
+    // Scale the base size
+    const finalSize = Math.max(8, baseSize * scale);
+    
+    return { 
+      fontSize: `${finalSize}px`,
+      maxHeight: size === 'xs' || size === 'sm' ? '35%' : '45%',
+      overflow: 'hidden',
+      display: '-webkit-box',
+      WebkitLineClamp: size === 'xs' || size === 'sm' ? '2' : '4',
+      WebkitBoxOrient: 'vertical',
+      paddingBottom: size === 'xs' ? '18%' : '0' // Shift up slightly for XS to not hit genre
+    };
   };
 
   return (
@@ -24,7 +48,7 @@ const BookCover = ({ book, className = '' }) => {
       style={{ 
         backgroundColor: bg,
         backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)',
-        backgroundSize: '20px 20px'
+        backgroundSize: `${20 * scale}px ${20 * scale}px`
       }}
     >
       {/* Left spine strip */}
@@ -47,24 +71,32 @@ const BookCover = ({ book, className = '' }) => {
 
       {/* Author line */}
       <div 
-        className="absolute top-[12%] left-0 right-0 text-center font-serif italic text-[10px] tracking-wide opacity-70 px-4"
-        style={{ color: text }}
+        className="absolute top-[12%] left-0 right-0 text-center font-serif italic tracking-wide opacity-70 px-4"
+        style={{ 
+          color: text,
+          fontSize: `${Math.max(6, 10 * scale)}px`
+        }}
       >
         {author}
       </div>
 
       {/* Title */}
-      <div 
-        className={`absolute inset-0 flex items-center justify-center px-4 font-serif font-bold text-center leading-tight ${getTitleClass(title)}`}
-        style={{ color: text }}
-      >
-        {title}
+      <div className="absolute inset-0 flex items-center justify-center px-4">
+        <div 
+          className="font-serif font-bold text-center leading-[1.1]"
+          style={{ color: text, ...getTitleStyle(title) }}
+        >
+          {title}
+        </div>
       </div>
 
       {/* Genre badge */}
       <div 
-        className="absolute bottom-[12%] left-0 right-0 text-center font-sans text-[9px] uppercase tracking-widest opacity-60 px-2"
-        style={{ color: text }}
+        className="absolute bottom-[12%] left-0 right-0 text-center font-sans uppercase tracking-widest opacity-60 px-2"
+        style={{ 
+          color: text,
+          fontSize: `${Math.max(5, 9 * scale)}px`
+        }}
       >
         {genre}
       </div>

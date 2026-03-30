@@ -33,8 +33,8 @@ const ProgressRing = ({ percent, size = 160, strokeWidth = 6 }) => {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-28px font-serif font-bold text-ink leading-none">{percent}%</span>
-        <span className="text-11px font-sans text-ink-muted uppercase tracking-wider mt-1">completed</span>
+        <span className="text-[28px] font-serif font-bold text-ink leading-none">{percent}%</span>
+        <span className="text-[11px] font-sans text-ink-muted uppercase tracking-wider mt-1">completed</span>
       </div>
     </div>
   );

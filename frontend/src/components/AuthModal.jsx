@@ -136,6 +136,7 @@ const AuthModal = () => {
             <input
               type="email"
               required
+              autoComplete="email"
               className="w-full bg-parchment border border-border-warm px-4 py-3 placeholder:text-ink-muted/50 focus:outline-none focus:border-brown transition-colors font-sans text-sm"
               placeholder="name@university.edu"
               value={formData.email}
@@ -158,6 +159,7 @@ const AuthModal = () => {
               <input
                 type={showPassword ? "text" : "password"}
                 required
+                autoComplete={authModalMode === 'login' ? "current-password" : "new-password"}
                 className="w-full bg-parchment border border-border-warm px-4 py-3 pr-10 placeholder:text-ink-muted/50 focus:outline-none focus:border-brown transition-colors font-sans text-sm"
                 placeholder="••••••••"
                 value={formData.password}
@@ -182,6 +184,7 @@ const AuthModal = () => {
               <input
                 type={showPassword ? "text" : "password"}
                 required
+                autoComplete="new-password"
                 className="w-full bg-parchment border border-border-warm px-4 py-3 placeholder:text-ink-muted/50 focus:outline-none focus:border-brown transition-colors font-sans text-sm"
                 placeholder="••••••••"
                 value={formData.confirmPassword}

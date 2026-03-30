@@ -30,13 +30,13 @@ const Navbar = () => {
 
         {/* CENTER: Desktop Nav Links */}
         <div className="hidden md:flex items-center gap-10">
-          <Link to="/" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-ink hover:text-brown transition-colors">Home</Link>
-          <Link to="/catalogue" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-ink hover:text-brown transition-colors">Catalogue</Link>
+          <Link to="/" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/70 hover:text-gold transition-colors">Home</Link>
+          <Link to="/catalogue" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/70 hover:text-gold transition-colors">Catalogue</Link>
           {user && (
             <>
-              <Link to="/my-library" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-ink hover:text-brown transition-colors">My Library</Link>
-              <Link to="/reservations" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-ink hover:text-brown transition-colors">Reservations</Link>
-              <Link to="/fines" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-ink hover:text-brown transition-colors">Fines</Link>
+              <Link to="/my-library" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/70 hover:text-gold transition-colors">My Library</Link>
+              <Link to="/reservations" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/70 hover:text-gold transition-colors">Reservations</Link>
+              <Link to="/fines" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/70 hover:text-gold transition-colors">Fines</Link>
               {user.role === 'admin' && (
                 <Link to="/admin/dashboard" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-gold hover:text-gold-light transition-colors border border-gold/30 px-3 py-1 ml-4">Admin Panel</Link>
               )}
@@ -80,7 +80,7 @@ const Navbar = () => {
         </div>
 
         {/* MOBILE: Hamburger */}
-        <button 
+        <button
           className="md:hidden text-gold p-2"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         >
@@ -92,13 +92,13 @@ const Navbar = () => {
       {mobileMenuOpen && (
         <div className="absolute top-[64px] left-0 w-full bg-espresso-light border-t border-parchment/10 md:hidden animate-in fade-in slide-in-from-top-4 duration-200">
           <div className="flex flex-col gap-6 p-6">
-            <Link to="/" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-ink">Home</Link>
-            <Link to="/catalogue" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-ink">Catalogue</Link>
+            <Link to="/" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-parchment hover:text-gold transition-colors">Home</Link>
+            <Link to="/catalogue" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-parchment hover:text-gold transition-colors">Catalogue</Link>
             {user && (
               <>
-                <Link to="/my-library" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-ink">My Library</Link>
-                <Link to="/reservations" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-ink">Reservations</Link>
-                <Link to="/fines" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-ink">Fines</Link>
+                <Link to="/my-library" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-parchment hover:text-gold transition-colors">My Library</Link>
+                <Link to="/reservations" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-parchment hover:text-gold transition-colors">Reservations</Link>
+                <Link to="/fines" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-parchment hover:text-gold transition-colors">Fines</Link>
                 {user.role === 'admin' && (
                   <Link to="/admin/dashboard" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-gold">Admin Panel</Link>
                 )}
@@ -123,7 +123,7 @@ const Navbar = () => {
             ) : (
               <div className="flex flex-col gap-4">
                 <Link to="/profile" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 group/mobile">
-                   <div className="w-10 h-10 rounded-full bg-brown flex items-center justify-center text-cream font-bold border border-parchment/10 group-hover/mobile:border-gold transition-colors">
+                  <div className="w-10 h-10 rounded-full bg-brown flex items-center justify-center text-cream font-bold border border-parchment/10 group-hover/mobile:border-gold transition-colors">
                     {user.name.split(' ').map(n => n[0]).join('')}
                   </div>
                   <div>

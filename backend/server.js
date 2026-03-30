@@ -11,8 +11,8 @@ async function start() {
     await sequelize.authenticate()
     console.log('Database connected.')
     
-    // sync all models — simple sync is safer for 
-    // TiDB initialization than alter:true
+    // sync all models — simple sync is safer for TiDB 
+    // Manual ALTER will be used to add columns.
     await sequelize.sync()
     console.log('Models synced.')
     

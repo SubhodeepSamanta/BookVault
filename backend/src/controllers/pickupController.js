@@ -1,4 +1,4 @@
-const { Pickup, Book, Branch, User, Borrow, Reservation } = require('../models')
+const { Pickup, Book, Branch, User, Borrow, Reservation, Fine, Notification } = require('../models')
 const { Op } = require('sequelize')
 const { validationResult } = require('express-validator')
 
@@ -20,6 +20,14 @@ exports.schedulePickup = async (req, res) => {
 
     if (!eligible) {
       return res.status(403).json({ error: 'You must have an active borrow or notified reservation to schedule a pickup.' })
+    }
+
+    // Check for outstanding fines
+    const totalOutstanding = await Fine.sum('amount', { 
+      where: { user_id: req.user.id, paid: false } 
+    })
+    if (totalOutstanding > 100) {
+      return res.status(403).json({ error: `You have outstanding fines of ₹${totalOutstanding.toFixed(2)}. Please clear dues above ₹100 to schedule new pickups.` })
     }
 
     const slot = new Date(slotDate)
@@ -163,9 +171,36 @@ exports.markCollected = async (req, res) => {
   try {
     const pickup = await Pickup.findByPk(req.params.id)
     if (!pickup) return res.status(404).json({ error: 'Pickup not found' })
+    
     await pickup.update({ status: 'collected' })
-    res.json({ pickup })
+
+    // Find the associated borrow record and mark it active
+    const borrow = await Borrow.findOne({
+      where: { 
+        user_id: pickup.user_id, 
+        book_id: pickup.book_id,
+        status: 'reserved'
+      }
+    })
+
+    if (borrow) {
+      await borrow.update({ 
+        status: 'active',
+        borrowed_at: new Date()
+      })
+    }
+
+    await Notification.create({
+      user_id: pickup.user_id,
+      type: 'book_collected',
+      message: `Your pickup for "${(await pickup.getBook()).title}" has been marked as collected. Enjoy your reading!`,
+      ref_id: pickup.id,
+      ref_type: 'pickup'
+    })
+
+    res.json({ pickup, borrowStatus: borrow ? 'active' : 'unknown' })
   } catch (err) {
+    console.error('markCollected Error:', err)
     res.status(500).json({ error: err.message })
   }
 }

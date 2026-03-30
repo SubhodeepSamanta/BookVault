@@ -47,24 +47,45 @@ const Dashboard = () => {
     fetchStats();
   }, [user, navigate]);
 
-  if (!user || user.role !== 'admin' || loading) {
+  if (!user || user.role !== 'admin' || loading || !stats) {
     return (
       <div className="min-h-screen bg-cream flex flex-col items-center justify-center">
         <Loader2 className="animate-spin text-brown mb-4" size={40} />
-        <span className="text-ink-muted font-sans uppercase tracking-widest text-xs">Loading Command Center...</span>
+        <span className="text-ink-muted font-sans uppercase tracking-widest text-xs">
+          {loading ? 'Initializing Command Center...' : 'Establishing Secure Connection...'}
+        </span>
       </div>
     );
   }
 
   const handlePickupAction = async (id, newStatus, message, type) => {
     try {
-      await api.put(`/pickups/${id}/status`, { status: newStatus });
+      if (newStatus === 'active') {
+        await api.put(`/borrows/${id}/confirm-pickup`);
+      } else {
+        // For other status updates, we might still use a general route or handle specifically
+        // But for this PR, 'active' (confirm) is the main one.
+        // If it's 'rejected', we can just mark the borrow as cancelled
+        await api.put(`/borrows/${id}/return`); // Or implement a specific cancel
+      }
       addToast(message, type);
       // Refresh stats
       const res = await api.get('/admin/stats');
       setStats(res.data);
     } catch (err) {
       addToast('Action failed', 'error');
+    }
+  };
+
+  const handleRestockExpired = async () => {
+    try {
+      const res = await api.post('/borrows/batch-restock');
+      addToast(res.data.message, 'success');
+      // Refresh stats
+      const resp = await api.get('/admin/stats');
+      setStats(resp.data);
+    } catch (err) {
+      addToast('Failed to restock expired reservations', 'error');
     }
   };
 
@@ -216,19 +237,30 @@ const Dashboard = () => {
 
           {/* PENDING PICKUPS */}
           <section>
-             <div className="flex items-center gap-4 mb-6">
-                <h2 className="font-serif text-2xl font-bold text-ink">Pending Pickups</h2>
-                <span className="bg-amber-100 text-amber-700 text-[10px] font-sans font-bold px-2 py-0.5 uppercase tracking-widest">{stats.pendingPickups.length} pending</span>
+             <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-4">
+                   <h2 className="font-serif text-2xl font-bold text-ink">Pending Pickups</h2>
+                   <span className="bg-amber-100 text-amber-700 text-[10px] font-sans font-bold px-2 py-0.5 uppercase tracking-widest">{stats.pendingPickups.length} pending</span>
+                </div>
+                <button 
+                  onClick={handleRestockExpired}
+                  className="text-[10px] font-sans font-bold uppercase tracking-widest text-brown border border-brown/30 px-3 py-1.5 hover:bg-brown/5 transition-colors"
+                >
+                  Restock Expired
+                </button>
              </div>
 
              <div className="space-y-4">
                 {stats.pendingPickups.length > 0 ? stats.pendingPickups.map(p => (
                    <div key={p.id} className="bg-parchment border border-amber-200 p-5 flex gap-6 items-start shadow-sm group hover:bg-white transition-colors">
                       <div className="shrink-0 scale-75 -mt-2 -ml-2">
-                         <div className="w-[50px] h-[75px] bg-espresso border-l-4 border-gold shadow-md" />
+                         {/* Mini book cover representation */}
+                         <div className="w-[50px] h-[75px] bg-espresso border-l-4 border-gold shadow-md flex items-center justify-center p-2">
+                            <span className="text-[6px] text-parchment font-serif text-center font-bold leading-tight uppercase opacity-60">{p.Book?.title}</span>
+                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                         <div className="text-[11px] font-sans font-bold text-amber-700 uppercase tracking-widest mb-1">Pickup ID: {p.id}</div>
+                         <div className="text-[11px] font-sans font-bold text-amber-700 uppercase tracking-widest mb-1">Reservation ID: {p.id}</div>
                          <h3 className="font-serif text-lg font-bold text-ink mb-3 group-hover:text-brown transition-colors">{p.Book?.title}</h3>
                          
                          <div className="flex flex-wrap gap-x-6 gap-y-2">
@@ -237,29 +269,32 @@ const Dashboard = () => {
                                  {p.User?.name?.split(' ').map(n=>n[0]).join('')}
                                </div>
                                <span className="text-xs font-sans font-medium text-ink">{p.User?.name}</span>
+                               <span className="text-[10px] font-mono text-ink-muted opacity-60">#{p.User?.card_id}</span>
                             </div>
                             <div className="flex items-center gap-1.5 text-ink-muted">
                                <MapPin size={12} className="text-brown" />
-                               <span className="text-xs font-sans">{p.branch}</span>
+                               <span className="text-xs font-sans">{p.Branch?.name || 'Default Branch'}</span>
                             </div>
                             <div className="flex items-center gap-1.5 text-ink-muted">
                                <Clock size={12} className="text-brown" />
-                               <span className="text-xs font-sans font-bold">{new Date(p.slot_date).toLocaleDateString()} · {p.slot_time}</span>
+                               <span className="text-xs font-sans font-bold">
+                                 {p.pickup_date ? new Date(p.pickup_date).toLocaleDateString() : 'TBD'} · {p.pickup_time_slot || 'Anytime'}
+                               </span>
                             </div>
                          </div>
                       </div>
                       <div className="flex flex-col gap-2 shrink-0 self-center">
                          <button 
-                            onClick={() => handlePickupAction(p.id, 'confirmed', 'Pickup confirmed.', 'success')}
+                            onClick={() => handlePickupAction(p.id, 'active', 'Pickup confirmed.', 'success')}
                             className="bg-green-600 text-white text-[10px] font-sans font-bold px-4 py-2 uppercase tracking-widest hover:bg-green-700 transition-colors shadow-sm"
                          >
-                            Confirm
+                            Confirm Pickup
                          </button>
                          <button 
-                            onClick={() => handlePickupAction(p.id, 'rejected', 'Pickup rejected.', 'error')}
+                            onClick={() => handlePickupAction(p.id, 'cancelled', 'Reservation cancelled.', 'error')}
                             className="border border-red-300 text-red-600 text-[10px] font-sans font-bold px-4 py-2 uppercase tracking-widest hover:bg-red-50 transition-colors"
                          >
-                            Reject
+                            Reject/Cancel
                          </button>
                       </div>
                    </div>
@@ -293,7 +328,7 @@ const Dashboard = () => {
                          </div>
                          <div className="min-w-0">
                             <div className="text-[13px] font-sans font-bold text-ink truncate group-hover:text-red-600 transition-colors">{f.User?.name}</div>
-                            <div className="text-[11px] font-sans text-ink-muted italic truncate max-w-[120px]">{f.Book?.title}</div>
+                            <div className="text-[11px] font-sans text-ink-muted italic truncate max-w-[120px]">{f.Borrow?.Book?.title}</div>
                          </div>
                       </div>
                       <div className="flex items-center gap-4">

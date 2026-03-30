@@ -25,25 +25,26 @@ exports.getDashboardStats = async (req, res) => {
       Borrow.count({ where: { status: 'overdue' } }),
       Fine.sum('amount', { where: { paid: false } }),
       Fine.sum('amount', { where: { paid: true } }),
-      Pickup.count({ where: { status: 'pending' } }),
+      Borrow.count({ where: { status: 'reserved' } }),
       Review.count(),
       Review.findAll({
         attributes: [[sequelize.fn('AVG', sequelize.col('rating')), 'avg']]
       }),
       Borrow.findAll({
-        limit: 5,
-        order: [['borrowed_at', 'DESC']],
+        limit: 8,
+        order: [['created_at', 'DESC']],
         include: [
           { model: Book, attributes: ['title'] },
           { model: User, attributes: ['name'] }
         ]
       }),
-      Pickup.findAll({
-        where: { status: 'pending' },
-        limit: 5,
+      Borrow.findAll({
+        where: { status: 'reserved' },
+        limit: 10,
         include: [
           { model: Book, attributes: ['title'] },
-          { model: User, attributes: ['name'] }
+          { model: User, attributes: ['name', 'card_id'] },
+          { model: Branch, attributes: ['name'] }
         ]
       }),
       Fine.findAll({

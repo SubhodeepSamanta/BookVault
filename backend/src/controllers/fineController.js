@@ -8,7 +8,11 @@ exports.getMyFines = async (req, res) => {
       include: [
         { 
           model: Borrow, 
-          include: [{ model: Book, attributes: ['title', 'author', 'cover_image', 'cover_bg', 'cover_accent', 'cover_text'] }] 
+          attributes: ['id', 'due_date', 'status'],
+          include: [{ 
+            model: Book, 
+            attributes: ['id', 'title', 'author', 'cover_image', 'cover_bg', 'cover_accent', 'cover_text'] 
+          }] 
         }
       ],
       order: [['created_at', 'DESC']]
@@ -16,14 +20,19 @@ exports.getMyFines = async (req, res) => {
 
     const totalOutstanding = fines
       .filter(f => !f.paid)
-      .reduce((sum, f) => sum + parseFloat(f.amount), 0)
+      .reduce((sum, f) => sum + parseFloat(f.amount || 0), 0)
     
     const totalPaid = fines
       .filter(f => f.paid)
-      .reduce((sum, f) => sum + parseFloat(f.amount), 0)
+      .reduce((sum, f) => sum + parseFloat(f.amount || 0), 0)
 
-    res.json({ fines, totalOutstanding: parseFloat(totalOutstanding.toFixed(2)), totalPaid: parseFloat(totalPaid.toFixed(2)) })
+    res.json({ 
+      fines, 
+      totalOutstanding: parseFloat(totalOutstanding.toFixed(2)), 
+      totalPaid: parseFloat(totalPaid.toFixed(2)) 
+    })
   } catch (err) {
+    console.error('getMyFines Error:', err)
     res.status(500).json({ error: err.message })
   }
 }
@@ -69,8 +78,14 @@ exports.confirmPayment = async (req, res) => {
       ref_type: 'fine'
     })
 
-    res.json({ message: 'Payment confirmed.', txnId, paidAt: fine.paid_at })
+    res.json({ 
+      message: 'Payment confirmed.', 
+      txnId, 
+      paidAt: fine.paid_at,
+      fine // Return full updated fine record
+    })
   } catch (err) {
+    console.error('confirmPayment Error:', err)
     res.status(500).json({ error: err.message })
   }
 }

@@ -18,39 +18,53 @@ function calculateFine(dueDate) {
 // Finds all active borrows past due date,
 // marks them overdue, creates/updates fine records
 async function processOverdueBorrows() {
-  const now = new Date()
+  try {
+    const now = new Date()
 
-  const overdue = await Borrow.findAll({
-    where: {
-      status: { [Op.in]: ['active','overdue'] },
-      due_date: { [Op.lt]: now },
-      returned_at: null
-    }
-  })
-
-  let processed = 0
-  for (const borrow of overdue) {
-    // Mark borrow as overdue
-    await borrow.update({ status: 'overdue' })
-
-    // Create or update fine
-    const amount = calculateFine(borrow.due_date)
-    const [fine, created] = await Fine.findOrCreate({
-      where: { borrow_id: borrow.id },
-      defaults: {
-        borrow_id: borrow.id,
-        user_id: borrow.user_id,
-        amount
+    const overdue = await Borrow.findAll({
+      where: {
+        status: { [Op.in]: ['active', 'overdue'] },
+        due_date: { [Op.lt]: now },
+        returned_at: null
       }
     })
-    if (!created && !fine.paid) {
-      await fine.update({ amount })
-    }
-    processed++
-  }
 
-  console.log(`Fine job: processed ${processed} overdue borrows.`)
-  return processed
+    let processed = 0
+    for (const borrow of overdue) {
+      // Mark borrow as overdue
+      if (borrow.status !== 'overdue') {
+        await borrow.update({ status: 'overdue' })
+      }
+
+      // Create or update fine if it's over 1 day late
+      const amount = calculateFine(borrow.due_date)
+      if (amount <= 0) continue;
+
+      const [fine, created] = await Fine.findOrCreate({
+        where: { borrow_id: borrow.id },
+        defaults: {
+          borrow_id: borrow.id,
+          user_id: borrow.user_id,
+          amount
+        }
+      })
+
+      if (!created && !fine.paid) {
+        if (parseFloat(fine.amount) !== amount) {
+          await fine.update({ amount })
+        }
+      }
+      processed++
+    }
+
+    if (processed > 0) {
+      console.log(`Fine job: processed ${processed} overdue borrows at ${now.toISOString()}.`)
+    }
+    return processed
+  } catch (err) {
+    console.error('Error in processOverdueBorrows:', err)
+    throw err
+  }
 }
 
 module.exports = { calculateFine, processOverdueBorrows }
