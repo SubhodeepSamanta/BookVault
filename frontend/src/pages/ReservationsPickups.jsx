@@ -90,7 +90,7 @@ const ReservationsPickups = () => {
     return (
       <div className="min-h-screen bg-cream flex flex-col items-center justify-center">
         <Loader2 className="animate-spin text-brown mb-4" size={40} />
-        <span className="text-ink-muted font-sans uppercase tracking-widest text-xs">Syncing Terminal...</span>
+        <span className="text-ink-muted font-sans uppercase tracking-[0.25em] text-[10px] font-bold">Synchronizing Pickup Schedule...</span>
       </div>
     );
   }

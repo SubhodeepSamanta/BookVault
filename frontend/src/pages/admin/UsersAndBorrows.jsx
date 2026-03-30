@@ -54,51 +54,59 @@ const UsersAndBorrows = () => {
   };
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') {
-      navigate('/');
-      return;
-    }
     fetchData();
-  }, [user]);
-
-  const toggleUserStatus = async (targetUser) => {
-    try {
-      await api.put(`/admin/users/${targetUser.id}/status`);
-      addToast(`Status updated for ${targetUser.name}.`, 'success');
-      fetchData();
-    } catch (err) {
-      addToast('Action failed', 'error');
-    }
-  };
+  }, []);
 
   const handleConfirmReturn = async (id) => {
     try {
       await api.put(`/borrows/${id}/confirm-return`);
-      addToast('Volume returned to inventory.', 'success');
+      addToast('Return finalized.', 'success');
       fetchData();
     } catch (err) {
-      addToast('Confirmation failed', 'error');
+      addToast('Return failed.', 'error');
     }
   };
 
-  const openUserDetail = (member) => {
-    setSelectedUser(member);
-    setUserBorrows(borrowList.filter(b => b.user_id === member.id));
-    setShowUserModal(true);
+  const toggleUserStatus = async (user) => {
+    try {
+      const newStatus = user.status === 'active' ? 'suspended' : 'active';
+      await api.put(`/admin/users/${user.id}/status`, { status: newStatus });
+      addToast(`Member status updated to ${newStatus}.`, 'success');
+      fetchData();
+    } catch (err) {
+      addToast('Failed to update member status.', 'error');
+    }
   };
 
-  const filteredUsers = userList.filter(u => 
-    u.name.toLowerCase().includes(searchQ.toLowerCase()) || 
-    u.email.toLowerCase().includes(searchQ.toLowerCase()) || 
+  const openUserDetail = async (user) => {
+    setSelectedUser(user);
+    setShowUserModal(true);
+    try {
+      const res = await api.get(`/admin/users/${user.id}/borrows`);
+      setUserBorrows(res.data.data || []);
+    } catch (err) {
+      addToast('History retrieval failure.', 'error');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="py-24 flex flex-col items-center justify-center bg-parchment/30 border border-border-warm animate-pulse">
+        <Loader2 className="animate-spin text-brown mb-6" size={48} />
+        <span className="text-[11px] font-sans font-bold uppercase tracking-[0.3em] text-ink-muted">Accessing Member Registry...</span>
+      </div>
+    );
+  }
+
+  const filteredUsers = (userList || []).filter(u => 
+    u.name?.toLowerCase().includes(searchQ.toLowerCase()) || 
     u.card_id?.toLowerCase().includes(searchQ.toLowerCase())
   );
 
-  const filteredBorrows = borrowList.filter(b => 
-    b.User?.name?.toLowerCase().includes(searchQ.toLowerCase()) || 
+  const filteredBorrows = (borrowList || []).filter(b => 
+    b.User?.name?.toLowerCase().includes(searchQ.toLowerCase()) ||
     b.Book?.title?.toLowerCase().includes(searchQ.toLowerCase())
   );
-
-  if (!user || user.role !== 'admin') return null;
 
   return (
     <>
@@ -131,13 +139,7 @@ const UsersAndBorrows = () => {
            />
         </div>
 
-        {loading ? (
-          <div className="py-20 flex flex-col items-center justify-center bg-parchment/30 border border-border-warm animate-pulse">
-            <Loader2 className="animate-spin text-brown mb-4" size={32} />
-            <span className="text-xs font-sans uppercase tracking-[0.25em] text-ink-muted font-bold">Synchronising Archives...</span>
-          </div>
-        ) : (
-          <div className="bg-parchment border border-border-warm overflow-hidden shadow-sm">
+        <div className="bg-parchment border border-border-warm overflow-hidden shadow-sm">
             {activeTab === 'Members' ? (
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -154,7 +156,7 @@ const UsersAndBorrows = () => {
                         <tr key={u.id} className="hover:bg-cream/50 transition-colors group">
                            <td className="px-6 py-4 flex items-center gap-3">
                               <div className="w-10 h-10 bg-brown text-cream flex items-center justify-center rounded-full text-sm font-serif font-bold shadow-sm">
-                                 {u.name[0]}
+                                 {u.name?.[0]}
                               </div>
                               <div>
                                  <div className="text-[13px] font-sans font-bold text-ink group-hover:text-brown transition-colors">{u.name}</div>
@@ -165,7 +167,7 @@ const UsersAndBorrows = () => {
                               <code className="bg-cream border border-border-warm px-2 py-0.5 text-[10px] font-mono font-bold text-ink-muted">{u.card_id}</code>
                            </td>
                            <td className="px-6 py-4 font-mono text-sm">
-                              {u.totalFineAmount > 0 ? <span className="text-red-700 font-bold">₹{u.totalFineAmount.toFixed(2)}</span> : <span className="text-ink-muted/50">—</span>}
+                              {parseFloat(u.totalFineAmount || 0) > 0 ? <span className="text-red-700 font-bold">₹{parseFloat(u.totalFineAmount).toFixed(2)}</span> : <span className="text-ink-muted/50">—</span>}
                            </td>
                            <td className="px-6 py-4">
                               <span className={`text-[9px] font-sans font-bold uppercase tracking-widest px-2 py-0.5 border
@@ -244,7 +246,6 @@ const UsersAndBorrows = () => {
                 </table>
             )}
           </div>
-        )}
       </div>
 
       {/* MEMBER INSIGHT MODAL */}
@@ -257,7 +258,7 @@ const UsersAndBorrows = () => {
               <div className="p-10">
                  <div className="flex items-center gap-8 mb-10">
                     <div className="w-20 h-20 bg-espresso text-cream flex items-center justify-center text-3xl font-serif font-bold shadow-2xl ring-4 ring-parchment">
-                       {selectedUser.name[0]}
+                       {selectedUser.name?.[0]}
                     </div>
                     <div>
                        <h2 className="font-serif text-4xl font-bold text-ink leading-tight">{selectedUser.name}</h2>
@@ -275,8 +276,8 @@ const UsersAndBorrows = () => {
                     </div>
                     <div>
                        <div className="text-[10px] font-sans font-bold text-ink-muted uppercase tracking-widest mb-2 italic">Financial Liability</div>
-                       <div className={`text-xl font-serif font-bold ${selectedUser.totalFineAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          ₹{selectedUser.totalFineAmount.toFixed(2)}
+                       <div className={`text-xl font-serif font-bold ${parseFloat(selectedUser.totalFineAmount || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          ₹{parseFloat(selectedUser.totalFineAmount || 0).toFixed(2)}
                        </div>
                     </div>
                  </div>
@@ -286,7 +287,7 @@ const UsersAndBorrows = () => {
                        <History size={14} className="text-brown" /> Archival Record
                     </h3>
                     <div className="space-y-3 max-h-[200px] overflow-y-auto pr-4 scrollbar-thin">
-                       {userBorrows.map(b => (
+                       {(userBorrows || []).map(b => (
                           <div key={b.id} className="bg-parchment p-4 border border-border-warm flex justify-between items-center group hover:border-brown transition-colors">
                              <div className="min-w-0">
                                 <div className="text-[13px] font-sans font-bold text-ink truncate group-hover:text-brown transition-colors">{b.Book?.title}</div>
@@ -297,7 +298,7 @@ const UsersAndBorrows = () => {
                              </span>
                           </div>
                        ))}
-                       {userBorrows.length === 0 && <p className="text-center py-6 text-sm italic text-ink-muted font-serif">The archive contains no previous circulation logs.</p>}
+                       {(!userBorrows || userBorrows.length === 0) && <p className="text-center py-6 text-sm italic text-ink-muted font-serif">The archive contains no previous circulation logs.</p>}
                     </div>
                  </section>
 

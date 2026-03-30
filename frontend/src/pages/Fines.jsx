@@ -32,22 +32,19 @@ const Fines = () => {
   const [txnId, setTxnId] = useState('');
 
   useEffect(() => {
-    if (!user) { navigate('/'); openAuthModal('login'); return; }
-
     const fetchFines = async () => {
       setLoading(true);
       try {
         const res = await api.get('/fines/my');
         setFines(res.data.fines);
       } catch (err) {
-        console.error('Error fetching fines:', err);
-        addToast('Failed to load fines', 'error');
+        addToast('Records retrieval failure.', 'error');
       } finally {
         setLoading(false);
       }
     };
     fetchFines();
-  }, [user, navigate, openAuthModal]);
+  }, [addToast]);
 
   useEffect(() => {
     let interval;
@@ -61,11 +58,11 @@ const Fines = () => {
     return () => clearInterval(interval);
   }, [showUPI, paymentStep, timer]);
 
-  if (!user || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-cream flex flex-col items-center justify-center">
         <Loader2 className="animate-spin text-brown mb-4" size={40} />
-        <span className="text-ink-muted font-sans uppercase tracking-widest text-xs">Accessing Financial Records...</span>
+        <span className="text-ink-muted font-sans uppercase tracking-[0.25em] text-[10px] font-bold">Synchronizing Financial Dues...</span>
       </div>
     );
   }

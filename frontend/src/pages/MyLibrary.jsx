@@ -39,12 +39,6 @@ const MyLibrary = () => {
   const [returnLoan, setReturnLoan] = useState(null);
 
   useEffect(() => {
-    if (!user) { 
-      navigate('/'); 
-      openAuthModal('login'); 
-      return;
-    }
-
     const fetchData = async () => {
       setLoading(true);
       try {
@@ -67,7 +61,7 @@ const MyLibrary = () => {
       }
     };
     fetchData();
-  }, [user, navigate, openAuthModal]);
+  }, [addToast]);
 
   const handleUpdateProgress = (book, currentProgress) => {
     setSelectedBook(book);
@@ -113,7 +107,7 @@ const MyLibrary = () => {
     }
   };
 
-  if (!user || loading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-cream flex flex-col items-center justify-center">
         <Loader2 className="animate-spin text-brown mb-4" size={40} />

@@ -41,8 +41,8 @@ const PickupsAndFines = () => {
         api.get('/borrows/all'),
         api.get('/fines/all')
       ]);
-      setBorrowList(borrowsRes.data.data);
-      setFineList(finesRes.data.data);
+      setBorrowList(borrowsRes.data.data || []);
+      setFineList(finesRes.data.data || []);
     } catch (err) {
       addToast('Failed to sync administrative records.', 'error');
     } finally {
@@ -51,12 +51,8 @@ const PickupsAndFines = () => {
   };
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') {
-      navigate('/');
-      return;
-    }
     fetchData();
-  }, [user]);
+  }, []);
 
   const handleConfirmPickup = async (id) => {
     try {
@@ -103,8 +99,16 @@ const PickupsAndFines = () => {
     setIsFineModalOpen(true);
   };
 
-  if (!user || user.role !== 'admin') return null;
+  if (loading) {
+    return (
+      <div className="py-24 flex flex-col items-center justify-center bg-parchment/30 border border-border-warm animate-pulse">
+        <Loader2 className="animate-spin text-brown mb-6" size={48} />
+        <span className="text-[11px] font-sans font-bold uppercase tracking-[0.3em] text-ink-muted">Synchronizing Archival Records...</span>
+      </div>
+    );
+  }
 
+  // Define categories BEFORE usage in return
   const categories = {
     Pickups: borrowList.filter(b => b.status === 'reserved'),
     Extensions: borrowList.filter(b => b.extensionStatus === 'requested'),
@@ -136,13 +140,7 @@ const PickupsAndFines = () => {
         ))}
       </div>
 
-      {loading ? (
-        <div className="py-20 flex flex-col items-center justify-center bg-parchment/30 border border-border-warm">
-          <Loader2 className="animate-spin text-brown mb-4" size={32} />
-          <span className="text-xs font-sans uppercase tracking-widest text-ink-muted font-bold">Synchronizing Terminal...</span>
-        </div>
-      ) : (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
            {/* SECTION: PICKUP MANAGEMENT */}
            {activeTab === 'Pickups' && (
               <div className="space-y-6">
@@ -156,13 +154,13 @@ const PickupsAndFines = () => {
                             <div className="flex justify-between items-start mb-2">
                                <div className="min-w-0 flex-1">
                                   <Link to={`/book/${item.Book?.id}`} className="block">
-                                     <h3 className="font-serif text-xl font-bold text-ink leading-tight truncate group-hover:text-brown transition-colors">{item.Book.title}</h3>
+                                     <h3 className="font-serif text-xl font-bold text-ink leading-tight truncate group-hover:text-brown transition-colors">{item.Book?.title}</h3>
                                   </Link>
-                                  <p className="text-[11px] font-sans text-ink-muted italic border-l-2 border-brown pl-2 mt-1">Requested by {item.User.name} ({item.User.card_id})</p>
+                                  <p className="text-[11px] font-sans text-ink-muted italic border-l-2 border-brown pl-2 mt-1">Requested by {item.User?.name} ({item.User?.card_id})</p>
                                </div>
                                <div className="text-[10px] font-mono font-bold text-ink-muted bg-parchment px-2 py-0.5 border border-border-warm">
                                   ID: {item.id}
-                               </div>
+                                </div>
                             </div>
                             <div className="flex gap-8 mt-4">
                                <div className="flex items-center gap-2">
@@ -205,12 +203,12 @@ const PickupsAndFines = () => {
                    <div key={item.id} className="bg-parchment border border-border-warm p-6 shadow-sm flex items-center justify-between">
                       <div className="flex items-center gap-6">
                          <div className="w-12 h-12 bg-brown text-cream flex items-center justify-center rounded-full text-lg font-serif font-bold">
-                            {item.User.name[0]}
+                            {item.User?.name[0]}
                          </div>
                          <div>
-                            <h3 className="font-sans font-bold text-ink">{item.User.name} <span className="font-normal text-ink-muted">requests extension for</span></h3>
+                            <h3 className="font-sans font-bold text-ink">{item.User?.name} <span className="font-normal text-ink-muted">requests extension for</span></h3>
                             <Link to={`/book/${item.Book?.id}`} className="block hover:opacity-80 transition-opacity">
-                               <div className="text-serif text-lg font-bold text-brown italic">"{item.Book.title}"</div>
+                               <div className="text-serif text-lg font-bold text-brown italic">"{item.Book?.title}"</div>
                             </Link>
                             <div className="flex items-center gap-4 mt-2 text-[11px] font-sans font-bold uppercase tracking-widest text-ink-muted">
                                <span className="text-red-500">Current Due: {new Date(item.due_date).toLocaleDateString()}</span>
@@ -259,9 +257,9 @@ const PickupsAndFines = () => {
                             </Link>
                             <div className="min-w-0 flex-1">
                                <Link to={`/book/${item.Book?.id}`} className="block">
-                                  <h3 className="font-serif text-lg font-bold text-ink truncate group-hover:text-brown transition-colors">{item.Book.title}</h3>
+                                  <h3 className="font-serif text-lg font-bold text-ink truncate group-hover:text-brown transition-colors">{item.Book?.title}</h3>
                                </Link>
-                               <p className="text-[11px] font-sans font-bold text-brown uppercase mb-1">Returner: {item.User.name}</p>
+                               <p className="text-[11px] font-sans font-bold text-brown uppercase mb-1">Returner: {item.User?.name}</p>
                                <p className="text-[10px] font-sans text-ink-muted italic leading-tight">Handheld confirmation required to restore inventory copies.</p>
                             </div>
                          </div>
@@ -308,11 +306,11 @@ const PickupsAndFines = () => {
                              <td className="px-6 py-4">
                                 <div className="flex items-center gap-3">
                                    <div className="w-8 h-8 bg-brown text-cream flex items-center justify-center rounded-full text-xs font-bold font-serif">
-                                      {f.User.name[0]}
+                                      {f.User?.name?.[0] || '?'}
                                    </div>
                                    <div>
-                                      <div className="text-[13px] font-sans font-bold text-ink">{f.User.name}</div>
-                                      <div className="text-[10px] font-mono text-ink-muted">{f.User.card_id}</div>
+                                      <div className="text-[13px] font-sans font-bold text-ink">{f.User?.name}</div>
+                                      <div className="text-[10px] font-mono text-ink-muted">{f.User?.card_id}</div>
                                    </div>
                                 </div>
                              </td>
@@ -320,7 +318,7 @@ const PickupsAndFines = () => {
                                 {f.Book?.title || 'Unknown Volume'}
                              </td>
                              <td className="px-6 py-4 font-mono text-sm">
-                                <span className="text-red-600 font-bold">₹{parseFloat(f.amount).toFixed(2)}</span>
+                                <span className="text-red-600 font-bold">₹{parseFloat(f.amount || 0).toFixed(2)}</span>
                              </td>
                              <td className="px-6 py-4 text-right">
                                 <button 
@@ -395,7 +393,6 @@ const PickupsAndFines = () => {
               </div>
            )}
         </div>
-      )}
 
       <IssueFineModal 
         isOpen={isFineModalOpen}

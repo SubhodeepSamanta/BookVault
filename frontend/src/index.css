@@ -83,6 +83,17 @@
   animation: slideInUp 0.5s ease-out forwards;
 }
 
+/* Custom progress animation for archival terminals */
+@keyframes progressSlide {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(0); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-progress-slide {
+  animation: progressSlide 2s infinite ease-in-out;
+}
+
 /* Hide number input spin-buttons */
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {

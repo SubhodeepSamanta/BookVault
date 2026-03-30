@@ -43,20 +43,14 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') {
-      navigate('/');
-      return;
-    }
     fetchStats();
-  }, [user]);
+  }, []);
 
-  if (loading || !stats) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-cream flex flex-col items-center justify-center">
         <Loader2 className="animate-spin text-brown mb-4" size={40} />
-        <span className="text-ink-muted font-sans uppercase tracking-widest text-xs">
-          Initialising Control Command...
-        </span>
+        <span className="text-ink-muted font-sans uppercase tracking-widest text-[10px] font-bold">Accessing Institutional Archives...</span>
       </div>
     );
   }
@@ -254,7 +248,7 @@ const Dashboard = () => {
                           <div className="text-[13px] font-sans font-bold text-ink group-hover:text-red-600 transition-colors">{f.User?.name}</div>
                           <div className="text-[10px] font-sans text-ink-muted italic truncate max-w-[120px]">{f.Borrow?.Book?.title}</div>
                        </div>
-                       <span className="font-mono text-sm font-bold text-red-600">₹{(f.amount || 0).toFixed(2)}</span>
+                       <span className="font-mono text-sm font-bold text-red-600">₹{parseFloat(f.amount || 0).toFixed(2)}</span>
                     </div>
                  )) : (
                     <div className="text-center py-6 text-sm italic text-ink-muted font-serif">No unsettled financial obligations.</div>

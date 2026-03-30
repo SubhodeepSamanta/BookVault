@@ -37,35 +37,38 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) { navigate('/'); openAuthModal('login'); return; }
-    
     const fetchStats = async () => {
       setLoading(true);
       try {
         const [borrowsRes, finesRes] = await Promise.all([
           api.get('/borrows/my'),
-          api.get('/fines/my').catch(() => ({ data: { totalOutstanding: 0 } }))
+          api.get('/fines/my')
         ]);
         
-        const allBorrows = borrowsRes.data.borrows || [];
-        const activeLoans = allBorrows.filter(b => b.status === 'active' || b.status === 'overdue' || b.status === 'reserved').length;
+        const activeCount = borrowsRes.data.borrows.filter(b => b.status === 'active' || b.status === 'overdue').length;
+        const totalFines = finesRes.data.fines.reduce((sum, f) => !f.paid ? sum + parseFloat(f.amount) : sum, 0);
         
         setStats({
-          borrowed: allBorrows.length,
-          active: activeLoans,
-          fines: finesRes.data.totalOutstanding || 0
+          borrowed: borrowsRes.data.borrows.length,
+          active: activeCount,
+          fines: totalFines
         });
       } catch (err) {
-        console.error('Failed to sync profile metrics:', err);
+        addToast('Failed to load profile statistics.', 'error');
       } finally {
         setLoading(false);
       }
     };
-    
     fetchStats();
-  }, [user]);
+  }, [addToast]);
 
-  if (!user) return null;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brown"></div>
+      </div>
+    );
+  }
 
   const genres = [
     'Classic Fiction', 'Science Fiction', 'Philosophy', 

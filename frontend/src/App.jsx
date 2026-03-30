@@ -18,6 +18,8 @@ import UsersAndBorrows from './pages/admin/UsersAndBorrows';
 import PickupsAndFines from './pages/admin/PickupsAndFines';
 import Content from './pages/admin/Content';
 
+import ProtectedRoute from './components/ProtectedRoute';
+
 function App() {
   return (
     <Router>
@@ -30,7 +32,11 @@ function App() {
 
             <Routes>
               {/* ADMIN PORTAL */}
-              <Route path="/admin" element={<AdminLayout />}>
+              <Route path="/admin" element={
+                <ProtectedRoute adminOnly={true}>
+                  <AdminLayout />
+                </ProtectedRoute>
+              }>
                 <Route index element={<Navigate to="dashboard" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="books" element={<BooksManager />} />
@@ -51,10 +57,29 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/catalogue" element={<Catalogue />} />
                 <Route path="/book/:id" element={<BookDetail />} />
-                <Route path="/my-library" element={<MyLibrary />} />
-                <Route path="/reservations" element={<ReservationsPickups />} />
-                <Route path="/fines" element={<Fines />} />
-                <Route path="/profile" element={<Profile />} />
+                
+                {/* PROTECTED MEMBER ROUTES */}
+                <Route path="/my-library" element={
+                  <ProtectedRoute>
+                    <MyLibrary />
+                  </ProtectedRoute>
+                } />
+                <Route path="/reservations" element={
+                  <ProtectedRoute>
+                    <ReservationsPickups />
+                  </ProtectedRoute>
+                } />
+                <Route path="/fines" element={
+                  <ProtectedRoute>
+                    <Fines />
+                  </ProtectedRoute>
+                } />
+                <Route path="/profile" element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                } />
+
                 <Route path="*" element={
                   <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center">
                     <h2 className="font-serif text-4xl text-ink font-bold mb-4">404: Volume Misplaced</h2>
