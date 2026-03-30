@@ -36,10 +36,10 @@ const Home = () => {
           api.get('/announcements')
         ]);
         
-        setNewArrivals(booksRes.data.books);
-        setPopularBooks(booksRes.data.books.slice(1, 4));
+        setNewArrivals(booksRes.data.books || []);
+        setPopularBooks((booksRes.data.books || []).slice(1, 4));
         setFeaturedBook(featRes.data.book);
-        setAnnouncements(announceRes.data.announcements);
+        setAnnouncements(Array.isArray(announceRes.data) ? announceRes.data : (announceRes.data.announcements || []));
       } catch (err) {
         console.error('Error fetching home data:', err);
       } finally {
@@ -195,7 +195,7 @@ const Home = () => {
       {/* SECTION 2: ANNOUNCEMENT STRIP */}
       <section className="bg-brown/5 border-y border-border-warm overflow-hidden h-[64px]">
         <div className="flex h-full divide-x divide-border-warm overflow-x-auto scrollbar-hide">
-          {announcements.map((item) => (
+          {announcements.length > 0 ? announcements.map((item) => (
             <div key={item.id} className="flex-shrink-0 flex items-center gap-4 px-8 h-full min-w-max hover:bg-brown/[0.03] transition-colors cursor-default">
               <Megaphone size={16} className="text-brown" />
               <div className="flex flex-col">
@@ -205,7 +205,12 @@ const Home = () => {
                 </span>
               </div>
             </div>
-          ))}
+          )) : (
+            <div className="flex-1 flex items-center justify-center gap-4 px-8 opacity-40">
+              <Megaphone size={16} className="text-brown" />
+              <span className="text-[13px] font-sans font-medium text-ink italic tracking-widest uppercase">The library bulletin board stands quiet... No active broadcasts.</span>
+            </div>
+          )}
         </div>
       </section>
 
@@ -377,7 +382,9 @@ const Home = () => {
                   <BookCover book={book} className="w-full aspect-[2/3] shadow-lg group-hover:shadow-2xl transition-shadow" />
                 </Link>
                 <div className="mt-4">
-                  <h4 className="font-serif font-bold text-ink group-hover:text-brown transition-colors truncate">{book.title}</h4>
+                   <Link to={`/book/${book.id}`}>
+                      <h4 className="font-serif font-bold text-ink group-hover:text-brown transition-colors truncate">{book.title}</h4>
+                   </Link>
                   <p className="text-xs text-ink-muted italic mb-2">by {book.author}</p>
                   <div className="flex items-center gap-2 mb-3">
                     <StarRating rating={book.rating} size={10} />

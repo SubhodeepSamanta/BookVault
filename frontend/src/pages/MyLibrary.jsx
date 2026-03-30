@@ -137,8 +137,8 @@ const MyLibrary = () => {
 
   const handleReturn = async (borrowId) => {
     try {
-      await api.put(`/borrows/${borrowId}/return`);
-      addToast('Book returned successfully', 'success');
+      await api.put(`/borrows/${borrowId}/schedule-return`);
+      addToast('Book return scheduled. Please drop it at the desk.', 'success');
       // Refresh data
       const res = await api.get('/borrows/my');
       setBorrows(res.data.borrows);
@@ -246,15 +246,17 @@ const MyLibrary = () => {
 
                   return (
                     <div key={loan.id} className="bg-parchment border border-border-warm flex overflow-hidden group hover:border-brown/40 transition-colors">
-                      <div className="w-20 shrink-0">
+                      <Link to={`/book/${book.id}`} className="w-20 shrink-0 block hover:opacity-80 transition-opacity">
                          <BookCover book={book} className="w-full h-full shadow-none !rounded-none" />
-                      </div>
+                      </Link>
                       
                       <div className="flex-1 px-5 py-4 min-w-0">
                          <div className="flex justify-between items-start">
-                            <h3 className="font-serif text-lg font-bold text-ink truncate group-hover:text-brown transition-colors">
-                               {book.title}
-                            </h3>
+                            <Link to={`/book/${book.id}`} className="block min-w-0 flex-1">
+                               <h3 className="font-serif text-lg font-bold text-ink truncate group-hover:text-brown transition-colors">
+                                  {book.title}
+                               </h3>
+                            </Link>
                             <button 
                               onClick={() => handleUpdateProgress(book, progress)}
                               className="text-[10px] font-sans font-bold uppercase tracking-widest text-brown hover:text-espresso transition-colors"
@@ -374,11 +376,13 @@ const MyLibrary = () => {
                           <tr key={loan.id} className="border-b border-border-warm last:border-none group hover:bg-cream/50 transition-colors">
                              <td className="py-4 px-6">
                                 <div className="flex items-center gap-4">
-                                   <div className="w-10 h-14 shrink-0 overflow-hidden shadow-sm">
+                                   <Link to={`/book/${book.id}`} className="w-10 h-14 shrink-0 overflow-hidden shadow-sm hover:opacity-80 transition-opacity block">
                                       <BookCover book={book} className="w-full h-full !rounded-none scale-110" />
-                                   </div>
+                                   </Link>
                                    <div>
-                                      <div className="text-sm font-sans font-bold text-ink group-hover:text-brown transition-colors">{book.title}</div>
+                                      <Link to={`/book/${book.id}`} className="text-sm font-sans font-bold text-ink group-hover:text-brown transition-colors block">
+                                         {book.title}
+                                      </Link>
                                       <div className="text-[11px] font-sans text-ink-muted italic">by {book.author}</div>
                                    </div>
                                 </div>
@@ -449,12 +453,14 @@ const MyLibrary = () => {
                   
                   return (
                     <div key={progress.id} className="bg-parchment border border-border-warm p-5 flex gap-5 group hover:border-brown/40 transition-colors">
-                       <div className="w-14 shrink-0 shadow-md transform group-hover:scale-105 transition-transform">
+                       <Link to={`/book/${book.id}`} className="w-14 shrink-0 shadow-md transform group-hover:scale-105 transition-transform block">
                           <BookCover book={book} className="w-full h-full !rounded-none" />
-                       </div>
+                       </Link>
                        <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start mb-1">
-                             <h4 className="font-serif text-[15px] font-bold text-ink truncate group-hover:text-brown transition-colors">{book.title}</h4>
+                             <Link to={`/book/${book.id}`} className="block min-w-0 flex-1">
+                                <h4 className="font-serif text-[15px] font-bold text-ink truncate group-hover:text-brown transition-colors">{book.title}</h4>
+                             </Link>
                              {activeLoans.find(al => al.book_id === progress.book_id) && (
                                <button 
                                 onClick={() => handleUpdateProgress(book, progress)}

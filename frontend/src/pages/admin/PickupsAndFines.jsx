@@ -17,7 +17,7 @@ import api from '../../api/client';
 import BookCover from '../../components/BookCover';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const PickupsAndFines = () => {
   const { user } = useAuth();
@@ -137,14 +137,16 @@ const PickupsAndFines = () => {
               <div className="space-y-6">
                  {categories.Pickups.length > 0 ? categories.Pickups.map(item => (
                    <div key={item.id} className="bg-white border border-border-warm overflow-hidden shadow-sm hover:border-brown transition-all group flex h-48">
-                      <div className="w-32 bg-espresso/5 border-r border-border-warm overflow-hidden">
+                      <Link to={`/book/${item.Book?.id}`} className="w-32 bg-espresso/5 border-r border-border-warm overflow-hidden block hover:opacity-80 transition-opacity">
                          <BookCover book={item.Book} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-700" />
-                      </div>
+                      </Link>
                       <div className="flex-1 p-6 flex flex-col justify-between">
                          <div>
                             <div className="flex justify-between items-start mb-2">
-                               <div>
-                                  <h3 className="font-serif text-xl font-bold text-ink leading-tight">{item.Book.title}</h3>
+                               <div className="min-w-0 flex-1">
+                                  <Link to={`/book/${item.Book?.id}`} className="block">
+                                     <h3 className="font-serif text-xl font-bold text-ink leading-tight truncate group-hover:text-brown transition-colors">{item.Book.title}</h3>
+                                  </Link>
                                   <p className="text-[11px] font-sans text-ink-muted italic border-l-2 border-brown pl-2 mt-1">Requested by {item.User.name} ({item.User.card_id})</p>
                                </div>
                                <div className="text-[10px] font-mono font-bold text-ink-muted bg-parchment px-2 py-0.5 border border-border-warm">
@@ -154,7 +156,7 @@ const PickupsAndFines = () => {
                             <div className="flex gap-8 mt-4">
                                <div className="flex items-center gap-2">
                                   <Calendar size={13} className="text-brown" />
-                                  <span className="text-xs font-sans font-bold text-ink">{new Date(item.pickup_date).toLocaleDateString()}</span>
+                                  <span className="text-xs font-sans font-bold text-ink">{item.pickupDate ? new Date(item.pickupDate).toLocaleDateString() : '—'}</span>
                                </div>
                                <div className="flex items-center gap-2">
                                   <Clock size={13} className="text-brown" />
@@ -196,7 +198,9 @@ const PickupsAndFines = () => {
                          </div>
                          <div>
                             <h3 className="font-sans font-bold text-ink">{item.User.name} <span className="font-normal text-ink-muted">requests extension for</span></h3>
-                            <div className="text-serif text-lg font-bold text-brown italic">"{item.Book.title}"</div>
+                            <Link to={`/book/${item.Book?.id}`} className="block hover:opacity-80 transition-opacity">
+                               <div className="text-serif text-lg font-bold text-brown italic">"{item.Book.title}"</div>
+                            </Link>
                             <div className="flex items-center gap-4 mt-2 text-[11px] font-sans font-bold uppercase tracking-widest text-ink-muted">
                                <span className="text-red-500">Current Due: {new Date(item.due_date).toLocaleDateString()}</span>
                                <ChevronRight size={12} />
@@ -239,11 +243,13 @@ const PickupsAndFines = () => {
                       </div>
                       <div className="p-6">
                          <div className="flex gap-4 mb-6">
-                            <div className="w-16 shadow-lg">
+                            <Link to={`/book/${item.Book?.id}`} className="w-16 shadow-lg shrink-0 block hover:opacity-80 transition-opacity">
                                <BookCover book={item.Book} />
-                            </div>
-                            <div>
-                               <h3 className="font-serif text-lg font-bold text-ink truncate">{item.Book.title}</h3>
+                            </Link>
+                            <div className="min-w-0 flex-1">
+                               <Link to={`/book/${item.Book?.id}`} className="block">
+                                  <h3 className="font-serif text-lg font-bold text-ink truncate group-hover:text-brown transition-colors">{item.Book.title}</h3>
+                               </Link>
                                <p className="text-[11px] font-sans font-bold text-brown uppercase mb-1">Returner: {item.User.name}</p>
                                <p className="text-[10px] font-sans text-ink-muted italic leading-tight">Handheld confirmation required to restore inventory copies.</p>
                             </div>

@@ -3,90 +3,98 @@ const { Op } = require('sequelize')
 
 exports.getDashboardStats = async (req, res) => {
   try {
-    const [
-      totalBooks,
-      activeMembers,
-      activeBorrows,
-      overdueCount,
-      outstandingFines,
-      collectedFines,
-      pendingPickupsCount,
-      totalReviews,
-      avgRatingData,
+    console.log('[Diagnostics] Starting Admin Stats Aggregation...');
+    
+    // 1. Core Counts
+    const totalBooks = await Book.count();
+    const activeMembers = await User.count({ where: { role: 'student', status: 'active' } });
+    const activeBorrows = await Borrow.count({ where: { status: 'active' } });
+    const overdueCount = await Borrow.count({ where: { status: 'overdue' } });
+    const collectedFines = await Fine.sum('amount', { where: { paid: true } }) || 0;
+    const pendingPickupsCount = await Borrow.count({ where: { status: 'reserved' } });
+    const totalReviews = await Review.count();
+    
+    // 2. Averages
+    const avgRatingRes = await Review.findAll({
+      attributes: [[sequelize.fn('AVG', sequelize.col('rating')), 'avg']],
+      raw: true
+    });
+    const avgRating = Number(avgRatingRes[0]?.avg || 0).toFixed(1);
+
+    // 3. Lists
+    const recentBorrows = await Borrow.findAll({
+      limit: 8,
+      order: [['created_at', 'DESC']],
+      include: [
+        { model: Book, attributes: ['title'] },
+        { model: User, attributes: ['name'] }
+      ]
+    });
+
+    const pendingPickups = await Borrow.findAll({
+      where: { status: 'reserved' },
+      limit: 10,
+      include: [
+        { model: Book, attributes: ['title', 'cover_image', 'cover_bg', 'cover_accent', 'cover_text'] },
+        { model: User, attributes: ['name', 'card_id'] },
+        { model: Branch, attributes: ['name'] }
+      ]
+    });
+
+    const unpaidFines = await Fine.findAll({
+      where: { paid: false },
+      limit: 5,
+      include: [
+        {
+          model: Borrow,
+          attributes: ['id'],
+          include: [{ model: Book, attributes: ['title'] }]
+        },
+        { model: User, attributes: ['name'] }
+      ]
+    });
+
+    const announcements = await Announcement.findAll({ 
+      where: { is_active: true }, 
+      order: [['created_at', 'DESC']], 
+      limit: 3 
+    });
+
+    // 4. Distribution
+    const genreData = await Book.findAll({
+      attributes: ['genre', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+      group: ['genre'],
+      raw: true
+    });
+
+    const statsResponse = {
+      totalBooks: Number(totalBooks),
+      activeMembers: Number(activeMembers),
+      activeBorrows: Number(activeBorrows),
+      overdueCount: Number(overdueCount),
+      collectedFines: Number(collectedFines),
+      pendingPickupsCount: Number(pendingPickupsCount),
+      totalReviews: Number(totalReviews),
+      avgRating: avgRating,
       recentBorrows,
       pendingPickups,
       unpaidFines,
       announcements,
-      genreData
-    ] = await Promise.all([
-      Book.count(),
-      User.count({ where: { role: 'student', status: 'active' } }),
-      Borrow.count({ where: { status: 'active' } }),
-      Borrow.count({ where: { status: 'overdue' } }),
-      Fine.sum('amount', { where: { paid: false } }),
-      Fine.sum('amount', { where: { paid: true } }),
-      Borrow.count({ where: { status: 'reserved' } }),
-      Review.count(),
-      Review.findAll({
-        attributes: [[sequelize.fn('AVG', sequelize.col('rating')), 'avg']]
-      }),
-      Borrow.findAll({
-        limit: 8,
-        order: [['created_at', 'DESC']],
-        include: [
-          { model: Book, attributes: ['title'] },
-          { model: User, attributes: ['name'] }
-        ]
-      }),
-      Borrow.findAll({
-        where: { status: 'reserved' },
-        limit: 10,
-        include: [
-          { model: Book, attributes: ['title', 'cover_image', 'cover_bg', 'cover_accent', 'cover_text'] },
-          { model: User, attributes: ['name', 'card_id'] },
-          { model: Branch, attributes: ['name'] }
-        ]
-      }),
-      Fine.findAll({
-        where: { paid: false },
-        limit: 5,
-        include: [
-          { 
-            model: Borrow, 
-            attributes: ['id'],
-            include: [{ model: Book, attributes: ['title'] }] 
-          },
-          { model: User, attributes: ['name'] }
-        ]
-      }),
-      Announcement.findAll({ where: { is_active: true }, order: [['created_at', 'DESC']], limit: 3 }),
-      Book.findAll({
-        attributes: ['genre', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
-        group: ['genre']
-      })
-    ])
+      genreStats: genreData.map(g => ({
+        genre: g.genre || 'Unspecified',
+        count: Number(g.count || 0)
+      }))
+    };
 
-    res.json({
-      totalBooks: totalBooks || 0,
-      activeMembers: activeMembers || 0,
-      activeBorrows: activeBorrows || 0,
-      overdueCount: overdueCount || 0,
-      outstandingFines: parseFloat((outstandingFines || 0).toFixed(2)),
-      collectedFines: parseFloat((collectedFines || 0).toFixed(2)),
-      pendingPickupsCount: pendingPickupsCount || 0,
-      totalReviews: totalReviews || 0,
-      avgRating: parseFloat((avgRatingData[0]?.dataValues.avg || 0).toFixed(1)),
-      recentBorrows: recentBorrows || [],
-      pendingPickups: pendingPickups || [],
-      unpaidFines: unpaidFines || [],
-      announcements: announcements || [],
-      genreStats: genreData || []
-    })
+    console.log('[Diagnostics] Stats Aggregation Complete.');
+    res.json(statsResponse);
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    console.error('[CRITICAL ERROR] Admin Stats Pipeline Failed:', err);
+    res.status(500).json({ error: err.message });
   }
 }
 
+// ... existing helper methods ...
 exports.getAllUsers = async (req, res) => {
   try {
     let { status, search, page = 1, limit = 50 } = req.query
@@ -108,26 +116,13 @@ exports.getAllUsers = async (req, res) => {
       where,
       limit,
       offset,
-      attributes: { exclude: ['password'] },
       order: [['created_at', 'DESC']]
     })
 
-    const results = await Promise.all(rows.map(async (user) => {
-      const activeBorrows = await Borrow.count({ where: { user_id: user.id, status: { [Op.in]: ['active', 'overdue'] } } })
-      const totalFine = await Fine.sum('amount', { where: { user_id: user.id, paid: false } })
-      return {
-        ...user.toJSON(),
-        activeBorrowCount: activeBorrows,
-        totalFineAmount: parseFloat((totalFine || 0).toFixed(2))
-      }
-    }))
-
     res.json({
-      data: results,
+      users: rows,
       total: count,
-      page,
-      totalPages: Math.ceil(count / limit),
-      limit
+      pages: Math.ceil(count / limit)
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -136,14 +131,9 @@ exports.getAllUsers = async (req, res) => {
 
 exports.updateUserStatus = async (req, res) => {
   try {
-    const user = await User.findByPk(req.params.id)
-    if (!user) return res.status(404).json({ error: 'User not found' })
-    if (user.id === req.user.id) return res.status(400).json({ error: 'Cannot deactivate yourself' })
-
-    const newStatus = user.status === 'active' ? 'inactive' : 'active'
-    await user.update({ status: newStatus })
-    
-    res.json({ user: { id: user.id, status: user.status } })
+    const { status } = req.body
+    await User.update({ status }, { where: { id: req.params.id } })
+    res.json({ message: 'User status updated' })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

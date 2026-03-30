@@ -56,7 +56,7 @@ const BooksManager = () => {
     setLoading(true);
     try {
       const res = await api.get('/books');
-      setBookList(res.data);
+      setBookList(res.data.books || []);
     } catch (err) {
       addToast('Failed to load books', 'error');
     } finally {

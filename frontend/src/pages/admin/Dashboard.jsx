@@ -7,6 +7,7 @@ import {
   AlertCircle, 
   IndianRupee, 
   CalendarCheck, 
+  Calendar,
   Star,
   MapPin,
   Clock,
@@ -158,7 +159,9 @@ const Dashboard = () => {
                             <span className="text-[9px] font-sans font-bold uppercase tracking-widest text-brown bg-brown/5 px-2 py-0.5 border border-brown/10">Reservation</span>
                             <span className="text-[10px] font-mono text-ink-muted">Ref: BV-{p.id}</span>
                          </div>
-                         <h3 className="font-serif text-xl font-bold text-ink truncate mb-2">{p.Book?.title}</h3>
+                         <Link to={`/book/${p.Book?.id}`} className="block group/title">
+                            <h3 className="font-serif text-xl font-bold text-ink truncate mb-2 group-hover/title:text-brown transition-colors">{p.Book?.title}</h3>
+                         </Link>
                          <div className="flex flex-wrap gap-4 text-ink-muted">
                             <div className="flex items-center gap-1.5">
                                <div className="w-5 h-5 bg-espresso text-cream flex items-center justify-center rounded-full text-[8px] font-bold">
@@ -168,7 +171,7 @@ const Dashboard = () => {
                             </div>
                             <div className="flex items-center gap-1.5 border-l border-border-warm pl-4">
                                <Calendar size={12} />
-                               <span className="text-xs font-sans">{new Date(p.pickup_date).toLocaleDateString()}</span>
+                               <span className="text-xs font-sans">{p.pickupDate ? new Date(p.pickupDate).toLocaleDateString() : '—'}</span>
                             </div>
                          </div>
                       </div>
@@ -212,7 +215,9 @@ const Dashboard = () => {
                                <span className="text-[13px] font-sans font-bold text-ink">{b.User?.name}</span>
                             </td>
                             <td className="px-6 py-4 text-[13px] font-sans text-ink-muted truncate max-w-[140px] italic">
-                               {b.Book?.title}
+                               <Link to={`/book/${b.Book?.id}`} className="hover:text-brown transition-colors">
+                                  {b.Book?.title}
+                               </Link>
                             </td>
                             <td className="px-6 py-4 text-center">
                                <span className={`text-[9px] font-sans font-bold uppercase tracking-widest px-2 py-0.5 border
@@ -223,7 +228,7 @@ const Dashboard = () => {
                                </span>
                             </td>
                             <td className="px-6 py-4 text-right text-[11px] font-sans text-ink-muted">
-                               {new Date(b.created_at).toLocaleDateString()}
+                               {new Date(b.createdAt).toLocaleDateString()}
                             </td>
                          </tr>
                       )) : (

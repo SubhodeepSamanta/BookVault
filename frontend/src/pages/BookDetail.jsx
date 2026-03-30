@@ -322,6 +322,23 @@ const BookDetail = () => {
                                    ))}
                                 </tbody>
                              </table>
+
+                             <div className="mt-8 pt-8 border-t border-border-deep space-y-4">
+                                <h5 className="text-[9px] font-sans font-bold uppercase tracking-[0.2em] text-brown">Scholarly Regulations</h5>
+                                <ul className="space-y-2">
+                                   {[
+                                      ['Return Interval', '14 Earth Days'],
+                                      ['Extension Limit', '1 Instance / Term'],
+                                      ['Archival Care', 'Parchment Integrity Critical'],
+                                      ['Late Protocol', '₹10/Day Institutional Fine']
+                                   ].map(([label, rule], i) => (
+                                      <li key={i} className="flex justify-between items-center text-[10px] font-sans">
+                                         <span className="text-ink-muted italic">{label}</span>
+                                         <span className="text-ink font-bold uppercase tracking-tighter">{rule}</span>
+                                      </li>
+                                   ))}
+                                </ul>
+                             </div>
                           </div>
                           <div>
                              <h4 className="text-[10px] font-sans font-bold uppercase tracking-[0.2em] text-ink-muted mb-6">Similar Volumes</h4>
@@ -475,13 +492,13 @@ const BookDetail = () => {
                                             type="number" 
                                             min="0"
                                             max={book.pages}
-                                            value={pagesRead}
+                                            value={pagesRead.toString().padStart(3, '0')}
                                             onChange={e => {
                                                const val = parseInt(e.target.value) || 0;
                                                setPagesRead(val);
                                                setReadingProgress(Math.min(100, Math.round((val / book.pages) * 100)));
                                             }}
-                                            className="w-full bg-white border-2 border-border-warm px-8 py-5 text-4xl font-serif font-bold text-espresso focus:outline-none focus:border-brown transition-colors shadow-inner"
+                                            className="w-full bg-white border-2 border-border-warm pl-8 pr-32 py-5 text-4xl font-serif font-bold text-espresso focus:outline-none focus:border-brown transition-colors shadow-inner"
                                          />
                                          <div className="absolute right-8 top-1/2 -translate-y-1/2 flex flex-col items-end opacity-40 group-focus-within:opacity-100 transition-opacity">
                                             <span className="text-[9px] font-sans font-bold uppercase tracking-widest text-brown">Pages Read</span>

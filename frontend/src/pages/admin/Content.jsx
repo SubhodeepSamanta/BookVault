@@ -36,8 +36,8 @@ const Content = () => {
     setLoading(true);
     try {
       if (activeTab === 'Announcements') {
-        const res = await api.get('/announcements/admin');
-        setAnnouncements(res.data.announcements);
+        const res = await api.get('/announcements/all');
+        setAnnouncements(res.data.announcements || []);
       } else {
         const res = await api.get('/reviews/all');
         setReviews(res.data);
@@ -215,7 +215,7 @@ const Content = () => {
 
                        <div className="flex items-center gap-2.5 text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted mb-4">
                           <Calendar size={12} className="text-gold" />
-                          {new Date(a.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          {new Date(a.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                           <span className="mx-2 opacity-20">|</span>
                           <span className="font-bold">By {a.admin?.name || 'Administrative Office'}</span>
                        </div>
@@ -260,12 +260,16 @@ const Content = () => {
                                 {r.User?.name?.split(' ').map(n=>n[0]).join('')}
                              </div>
                              <div>
-                                <div className="text-[15px] font-sans font-bold text-ink">{r.User?.name}</div>
-                                <div className="text-[11px] font-sans text-ink-muted italic">Critique of <span className="font-bold text-brown">"{r.Book?.title}"</span></div>
+                             <div>
+                                <div className="text-[15px] font-sans font-bold text-ink mb-0.5">{r.User?.name}</div>
+                                <div className="text-[11px] font-sans text-ink-muted italic">
+                                   Critique of <Link to={`/book/${r.Book?.id}`} className="font-bold text-brown hover:text-espresso transition-colors underline decoration-brown/30">"{r.Book?.title || 'Unknown Volume'}"</Link>
+                                </div>
+                             </div>
                              </div>
                           </div>
                           <div className="text-right">
-                             <div className="text-[10px] font-sans font-bold text-ink-muted uppercase tracking-widest mb-1">{new Date(r.created_at).toLocaleDateString()}</div>
+                             <div className="text-[10px] font-sans font-bold text-ink-muted uppercase tracking-widest mb-1">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '—'}</div>
                              <div className="flex justify-end gap-0.5"><StarRating rating={r.rating} /></div>
                           </div>
                        </div>
