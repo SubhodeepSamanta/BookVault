@@ -7,8 +7,16 @@ const { body } = require('express-validator')
 router.post('/', [
   verifyToken,
   body('bookId').notEmpty(),
-  body('percent').isInt({ min: 0, max: 100 })
+  body('pages_read').isInt({ min: 0 })
 ], progressController.upsertProgress)
+
+router.post('/upsert', [
+  verifyToken,
+  body('bookId').notEmpty(),
+  body('pages_read').isInt({ min: 0 })
+], progressController.upsertProgress)
+
+
 
 router.get('/my', verifyToken, progressController.getMyProgress)
 

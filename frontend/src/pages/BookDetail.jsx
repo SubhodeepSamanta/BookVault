@@ -38,8 +38,10 @@ const BookDetail = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   
-  const [readingProgress, setReadingProgress] = useState(0);
+  const [readingProgress, setReadingProgress] = useState(0); // This will hold the percent
+  const [pagesRead, setPagesRead] = useState(0); 
   const [revRating, setRevRating] = useState(5);
+
   const [revComment, setRevComment] = useState('');
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -64,8 +66,12 @@ const BookDetail = () => {
         
         if (user) {
           const myProg = progressRes.data.progress.find(p => p.book_id === parseInt(id));
-          if (myProg) setReadingProgress(myProg.percent);
+          if (myProg) {
+            setReadingProgress(myProg.percent);
+            setPagesRead(myProg.pages_read || 0);
+          }
         }
+
       } catch (err) {
         console.error('Error fetching book details:', err);
       } finally {
@@ -137,12 +143,17 @@ const BookDetail = () => {
 
   const handleSaveProgress = async () => {
     try {
-      await api.post('/progress', { bookId: book.id, percent: readingProgress });
-      addToast('Reading progress updated!', 'success');
+      const res = await api.post('/progress', { 
+        bookId: book.id, 
+        pages_read: parseInt(pagesRead) 
+      });
+      setReadingProgress(res.data.progress.percent);
+      addToast(`Progress updated to ${res.data.progress.percent}%!`, 'success');
     } catch (err) {
       addToast(err.response?.data?.error || 'Failed to update progress', 'error');
     }
   };
+
 
   const handleReviewSubmit = async () => {
     if (!revComment.trim()) return;
@@ -499,45 +510,59 @@ const BookDetail = () => {
                       <div className="shrink-0">
                          <ProgressRing percent={readingProgress} size={200} strokeWidth={8} />
                       </div>
-                      
                       <div className="flex-1 w-full space-y-8">
                          <div>
-                            <h4 className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-ink-muted mb-6">Update Your Progress</h4>
-                            <div className="space-y-6">
-                              <div className="space-y-4">
-                                <div className="flex justify-between items-center text-sm font-sans">
-                                  <span className="text-ink-muted">Overall progress</span>
-                                  <span className="text-brown font-bold text-lg">{readingProgress}%</span>
+                            <h4 className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-ink-muted mb-6">Current Progress</h4>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+                              <div className="bg-parchment p-6 border border-border-warm flex flex-col justify-center">
+                                <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted mb-1">Pages Completed</span>
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-4xl font-serif font-bold text-ink">{pagesRead}</span>
+                                  <span className="text-ink-muted font-sans text-sm">/ {book.pages}</span>
                                 </div>
-                                <input 
-                                  type="range" 
-                                  min="0" 
-                                  max="100" 
-                                  value={readingProgress}
-                                  onChange={(e) => setReadingProgress(parseInt(e.target.value))}
-                                  className="w-full accent-brown h-1 bg-border-warm appearance-none cursor-pointer"
-                                />
                               </div>
+                              <div className="bg-parchment p-6 border border-border-warm flex flex-col justify-center">
+                                <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted mb-1">Completion Status</span>
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-4xl font-serif font-bold text-brown">{readingProgress}%</span>
+                                  <span className="text-ink-muted font-sans text-sm">Total</span>
+                                </div>
+                              </div>
+                            </div>
 
-                              <div className="flex flex-col md:flex-row gap-6">
-                                <div className="flex-1 space-y-2">
-                                  <label className="text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted block pl-0.5">Pages Read (of {book.pages})</label>
+                            <div className="space-y-6">
+                              <div className="space-y-3">
+                                <label className="text-[11px] font-sans font-bold uppercase tracking-widest text-ink block pl-0.5">Where are you in the book?</label>
+                                <div className="relative">
                                   <input 
                                     type="number" 
-                                    value={Math.round((readingProgress / 100) * book.pages)}
-                                    onChange={(e) => setReadingProgress(Math.min(100, Math.max(0, Math.round((parseInt(e.target.value) || 0) / book.pages * 100))))}
-                                    className="w-full bg-cream border border-border-warm px-4 py-3 text-sm font-sans focus:outline-none focus:border-brown"
+                                    min="0"
+                                    max={book.pages}
+                                    value={pagesRead}
+                                    onChange={(e) => {
+                                      const val = parseInt(e.target.value) || 0;
+                                      setPagesRead(val);
+                                      setReadingProgress(Math.min(100, Math.round((val / book.pages) * 100)));
+                                    }}
+                                    className="w-full bg-cream border-2 border-border-warm px-6 py-4 text-xl font-sans font-bold focus:outline-none focus:border-brown transition-colors"
                                   />
+                                  <span className="absolute right-6 top-1/2 -translate-y-1/2 text-xs font-sans font-bold text-ink-muted uppercase tracking-widest">
+                                    Pages Read
+                                  </span>
                                 </div>
-                                <div className="flex items-end">
-                                  <button 
-                                    onClick={handleSaveProgress}
-                                    className="h-[46px] bg-espresso text-cream px-10 font-sans font-bold uppercase tracking-widest text-xs hover:bg-espresso-light transition-all whitespace-nowrap"
-                                  >
-                                    Save Progress
-                                  </button>
-                                </div>
+                                <p className="text-[11px] font-sans italic text-ink-muted leading-relaxed">
+                                  Tracked against the {book.pages}-page scholarly edition. 
+                                  {book.pages - pagesRead > 0 ? ` Approximately ${book.pages - pagesRead} pages remaining.` : " Volume completed."}
+                                </p>
                               </div>
+
+                              <button 
+                                onClick={handleSaveProgress}
+                                className="w-full md:w-auto bg-espresso text-cream px-12 py-4 font-sans font-bold uppercase tracking-[0.2em] text-xs hover:bg-espresso-light transition-all shadow-lg flex items-center justify-center gap-3"
+                              >
+                                Commit to Journal
+                              </button>
                             </div>
                          </div>
                       </div>

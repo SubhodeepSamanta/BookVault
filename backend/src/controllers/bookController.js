@@ -11,12 +11,14 @@ exports.getAllBooks = async (req, res) => {
 
     const where = {}
     if (search) {
+      const searchLower = search.toLowerCase()
       where[Op.or] = [
-        { title: { [Op.like]: `%${search}%` } },
-        { author: { [Op.like]: `%${search}%` } },
+        sequelize.where(sequelize.fn('LOWER', sequelize.col('title')), 'LIKE', `%${searchLower}%`),
+        sequelize.where(sequelize.fn('LOWER', sequelize.col('author')), 'LIKE', `%${searchLower}%`),
         { isbn: { [Op.like]: `%${search}%` } }
       ]
     }
+
     if (genre) where.genre = genre
     if (available === 'true') where.available_copies = { [Op.gt]: 0 }
 
