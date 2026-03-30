@@ -5,7 +5,6 @@ const Borrow = require('./Borrow')
 const Fine = require('./Fine')
 const Reservation = require('./Reservation')
 const Review = require('./Review')
-const Pickup = require('./Pickup')
 const Notification = require('./Notification')
 const ReadingProgress = require('./ReadingProgress')
 const Announcement = require('./Announcement')
@@ -23,9 +22,6 @@ Reservation.belongsTo(User, { foreignKey: 'user_id' })
 
 User.hasMany(Review, { foreignKey: 'user_id' })
 Review.belongsTo(User, { foreignKey: 'user_id' })
-
-User.hasMany(Pickup, { foreignKey: 'user_id' })
-Pickup.belongsTo(User, { foreignKey: 'user_id' })
 
 User.hasMany(Notification, { foreignKey: 'user_id' })
 Notification.belongsTo(User, { foreignKey: 'user_id' })
@@ -46,18 +42,12 @@ Reservation.belongsTo(Book, { foreignKey: 'book_id' })
 Book.hasMany(Review, { foreignKey: 'book_id' })
 Review.belongsTo(Book, { foreignKey: 'book_id' })
 
-Book.hasMany(Pickup, { foreignKey: 'book_id' })
-Pickup.belongsTo(Book, { foreignKey: 'book_id' })
-
 Book.hasMany(ReadingProgress, { foreignKey: 'book_id' })
 ReadingProgress.belongsTo(Book, { foreignKey: 'book_id' })
 
 // OTHER ASSOCIATIONS
 Borrow.hasOne(Fine, { foreignKey: 'borrow_id' })
 Fine.belongsTo(Borrow, { foreignKey: 'borrow_id' })
-
-Branch.hasMany(Pickup, { foreignKey: 'branch_id' })
-Pickup.belongsTo(Branch, { foreignKey: 'branch_id' })
 
 Branch.hasMany(Borrow, { foreignKey: 'branch_id' })
 Borrow.belongsTo(Branch, { foreignKey: 'branch_id' })
@@ -70,9 +60,9 @@ module.exports = {
   Fine,
   Reservation,
   Review,
-  Pickup,
   Notification,
   ReadingProgress,
   Announcement,
   Branch
 }
+

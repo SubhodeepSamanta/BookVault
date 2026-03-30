@@ -1,9 +1,11 @@
 import React from 'react';
 
-const ProgressRing = ({ percent, size = 160, strokeWidth = 8 }) => {
+const ProgressRing = ({ percent, size = 160, strokeWidth = 8, variant = 'dark' }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const offset = circumference - (percent / 100) * circumference;
+
+  const isLight = variant === 'light';
 
   return (
     <div className="flex flex-col items-center justify-center relative select-none" style={{ width: size, height: size }}>
@@ -15,26 +17,14 @@ const ProgressRing = ({ percent, size = 160, strokeWidth = 8 }) => {
           </linearGradient>
         </defs>
         
-        {/* Shadow circle for depth */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="#E5E7EB"
-          strokeWidth={strokeWidth}
-          fill="transparent"
-          className="opacity-20"
-        />
-        
         {/* Background circle */}
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="currentColor"
+          stroke={isLight ? "rgba(255,255,255,0.1)" : "rgba(139,69,19,0.1)"}
           strokeWidth={strokeWidth}
           fill="transparent"
-          className="text-border-warm"
         />
         
         {/* Progress circle */}
@@ -54,11 +44,11 @@ const ProgressRing = ({ percent, size = 160, strokeWidth = 8 }) => {
       
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <div className="flex items-baseline">
-          <span className="text-4xl font-serif font-bold text-ink leading-none">{percent}</span>
-          <span className="text-xs font-sans font-bold text-ink-muted ml-0.5">%</span>
+          <span className={`text-4xl font-serif font-bold leading-none ${isLight ? 'text-cream' : 'text-ink'}`}>{percent}</span>
+          <span className={`text-xs font-sans font-bold ml-0.5 ${isLight ? 'text-gold' : 'text-brown'}`}>%</span>
         </div>
-        <span className="text-[9px] font-sans text-ink-muted uppercase tracking-[0.25em] mt-2 font-bold">
-          {percent === 100 ? 'Volume archived' : 'Reading progress'}
+        <span className={`text-[8px] font-sans uppercase tracking-[0.2em] mt-2 font-bold text-center px-4 leading-tight ${isLight ? 'text-parchment/60' : 'text-ink-muted'}`}>
+          {percent === 100 ? 'ARCHIVED' : 'PROGRESS'}
         </span>
       </div>
     </div>

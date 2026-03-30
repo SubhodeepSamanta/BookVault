@@ -1,11 +1,14 @@
 const bcrypt = require('bcryptjs')
-const { User, Book, Branch, Review } = require('../models')
+const { User, Book, Branch, Review, Borrow } = require('../models')
+const { addDays, subDays } = require('date-fns')
 
 async function seedDatabase() {
-  // Check if seeding is already done (based on some core data like admin)
-  const isSeeded = await User.findOne({ where: { role: 'admin' } })
-  if (isSeeded) {
-    console.log('Database already seeded. Skipping.')
+  // Check if admin already exists by email (most unique identifier)
+  const adminEmail = 'bookvaultadmin@gmail.com'
+  const adminExists = await User.findOne({ where: { email: adminEmail } })
+  
+  if (adminExists) {
+    console.log('Database already seeded (Admin exists). Skipping seed script.')
     return
   }
 
@@ -368,17 +371,22 @@ async function seedDatabase() {
     const random = Math.floor(Math.random() * 90000) + 10000
     const cardId = `BV-2026-${random}`
     
-    const user = await User.create({
-      name,
-      email,
-      password: hashed,
-      role: 'student',
-      card_id: cardId,
-      status: 'active'
-    })
-    studentUsers.push(user)
+    try {
+      const user = await User.create({
+        name,
+        email,
+        password: hashed,
+        role: 'student',
+        card_id: cardId,
+        status: 'active'
+      })
+      studentUsers.push(user)
+    } catch (err) {
+      console.warn(`Failed to seed student ${name}: ${err.message}`)
+    }
   }
-  console.log('Students seeded.')
+  const validStudents = studentUsers.filter(u => u && u.id)
+  console.log(`Students seeded. Success: ${validStudents.length}/${studentNames.length}`)
 
   // 5. MASSIVE REVIEWS
   const reviewPool = [
@@ -395,18 +403,85 @@ async function seedDatabase() {
   for (const book of books) {
     // Each book gets 3-7 random reviews
     const numReviews = Math.floor(Math.random() * 5) + 3
-    const reviewers = studentUsers.sort(() => 0.5 - Math.random()).slice(0, numReviews)
+    const reviewers = validStudents.sort(() => 0.5 - Math.random()).slice(0, numReviews)
     
     for (const student of reviewers) {
-      await Review.create({
-        user_id: student.id,
-        book_id: book.id,
-        rating: Math.floor(Math.random() * 2) + 4, // 4-5 stars for massive look
-        comment: reviewPool[Math.floor(Math.random() * reviewPool.length)]
-      })
+      try {
+        await Review.create({
+          user_id: student.id,
+          book_id: book.id,
+          rating: Math.floor(Math.random() * 2) + 4, // 4-5 stars for massive look
+          comment: reviewPool[Math.floor(Math.random() * reviewPool.length)]
+        })
+      } catch (err) {
+        // Skip duplicate reviews or other errors
+      }
     }
   }
   console.log('Reviews seeded.')
+  
+  // 6. SAMPLE BORROWS (The Lifecycle)
+  const mainBranch = await Branch.findOne({ where: { name: 'Main Campus Library' } })
+  const northBranch = await Branch.findOne({ where: { name: 'North Wing Reading Centre' } })
+  
+  const adminUser = await User.findOne({ where: { role: 'admin' } })
+  
+  // A. Pending Pickups (Reserved)
+  await Borrow.create({
+    user_id: adminUser.id,
+    book_id: books[0].id, // The Great Gatsby
+    branch_id: mainBranch.id,
+    status: 'reserved',
+    pickup_date: addDays(new Date(), 1).toISOString().split('T')[0],
+    pickup_time_slot: 'Morning (09:00 - 12:00)',
+    due_date: addDays(new Date(), 15) // Placeholder until pickup
+  })
+  
+  // B. Active Loans (The 14-day countdown)
+  const activeBook = books[1] // 1984
+  await Borrow.create({
+    user_id: adminUser.id,
+    book_id: activeBook.id,
+    branch_id: northBranch.id,
+    status: 'active',
+    borrowed_at: subDays(new Date(), 5),
+    due_date: addDays(new Date(), 9),
+    pickup_date: subDays(new Date(), 5).toISOString().split('T')[0],
+    pickup_time_slot: 'Afternoon (14:00 - 17:00)'
+  })
+  // Decrement copy
+  await Book.decrement({ available_copies: 1 }, { where: { id: activeBook.id } })
+
+  // C. Overdue Loans (Testing Fine Logic)
+  const overdueBook = books[2] // Sapiens
+  await Borrow.create({
+    user_id: adminUser.id,
+    book_id: overdueBook.id,
+    branch_id: mainBranch.id,
+    status: 'active', // Should be active but past due_date
+    borrowed_at: subDays(new Date(), 20),
+    due_date: subDays(new Date(), 6),
+    pickup_date: subDays(new Date(), 20).toISOString().split('T')[0],
+    pickup_time_slot: 'Morning (10:00 - 13:00)'
+  })
+  await Book.decrement({ available_copies: 1 }, { where: { id: overdueBook.id } })
+
+  // D. Return Scheduled (Logistics Hub Test)
+  const returnBook = books[3] // To Kill a Mockingbird
+  await Borrow.create({
+    user_id: adminUser.id,
+    book_id: returnBook.id,
+    branch_id: northBranch.id,
+    status: 'active',
+    return_status: 'scheduled',
+    return_date: addDays(new Date(), 1).toISOString().split('T')[0],
+    return_time_slot: 'Evening (17:00 - 19:00)',
+    borrowed_at: subDays(new Date(), 10),
+    due_date: addDays(new Date(), 4)
+  })
+  await Book.decrement({ available_copies: 1 }, { where: { id: returnBook.id } })
+
+  console.log('Sample Borrows (The Lifecycle) seeded.')
 
   console.log('Database seeding complete.')
 }

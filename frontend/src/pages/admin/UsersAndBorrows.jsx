@@ -10,7 +10,10 @@ import {
   X,
   Bell,
   Loader2,
-  Clock
+  Clock,
+  ArrowRight,
+  CheckCircle,
+  History
 } from 'lucide-react';
 import api from '../../api/client';
 import BookCover from '../../components/BookCover';
@@ -23,12 +26,11 @@ const UsersAndBorrows = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
 
-  const [activeTab, setActiveTab] = useState('All Members');
+  const [activeTab, setActiveTab] = useState('Members');
   const [userList, setUserList] = useState([]);
   const [borrowList, setBorrowList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQ, setSearchQ] = useState('');
-  const [filterStatus, setFilterStatus] = useState('All');
   
   // Modal State
   const [showUserModal, setShowUserModal] = useState(false);
@@ -38,15 +40,14 @@ const UsersAndBorrows = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      if (activeTab === 'All Members') {
-        const res = await api.get('/admin/users');
-        setUserList(res.data.data);
-      } else {
-        const res = await api.get('/borrows/all');
-        setBorrowList(res.data.data);
-      }
+      const [usersRes, borrowsRes] = await Promise.all([
+        api.get('/admin/users'),
+        api.get('/borrows/all')
+      ]);
+      setUserList(usersRes.data.data || []);
+      setBorrowList(borrowsRes.data.data || []);
     } catch (err) {
-      addToast('Failed to load data', 'error');
+      addToast('Records synchronization failure.', 'error');
     } finally {
       setLoading(false);
     }
@@ -58,162 +59,113 @@ const UsersAndBorrows = () => {
       return;
     }
     fetchData();
-  }, [user, navigate, activeTab]);
-
-  if (!user || user.role !== 'admin') return null;
+  }, [user]);
 
   const toggleUserStatus = async (targetUser) => {
     try {
       await api.put(`/admin/users/${targetUser.id}/status`);
-      addToast(`Member status updated to ${targetUser.status === 'active' ? 'inactive' : 'active'}.`, 'success');
+      addToast(`Status updated for ${targetUser.name}.`, 'success');
       fetchData();
     } catch (err) {
-      addToast('Status update failed', 'error');
+      addToast('Action failed', 'error');
     }
   };
 
-  const markReturned = async (id) => {
+  const handleConfirmReturn = async (id) => {
     try {
-      await api.put(`/borrows/${id}/return`);
-      addToast('Book marked as returned.', 'success');
+      await api.put(`/borrows/${id}/confirm-return`);
+      addToast('Volume returned to inventory.', 'success');
       fetchData();
     } catch (err) {
-      addToast('Return action failed', 'error');
+      addToast('Confirmation failed', 'error');
     }
   };
 
-  const openUserDetail = async (member) => {
+  const openUserDetail = (member) => {
     setSelectedUser(member);
+    setUserBorrows(borrowList.filter(b => b.user_id === member.id));
     setShowUserModal(true);
-    setUserBorrows([]);
-    try {
-      // Find all borrows for this user in the borrowList if available, or fetch
-      const res = await api.get('/borrows/all');
-      const filtered = res.data.data.filter(b => b.user_id === member.id);
-      setUserBorrows(filtered);
-    } catch (err) {
-      console.error('Failed to fetch user borrows');
-    }
   };
 
-  const filteredUsers = userList.filter(u => {
-    const matchesSearch = u.name.toLowerCase().includes(searchQ.toLowerCase()) || 
-                         u.email.toLowerCase().includes(searchQ.toLowerCase()) || 
-                         u.card_id?.toLowerCase().includes(searchQ.toLowerCase());
-    const matchesStatus = filterStatus === 'All' || u.status === filterStatus.toLowerCase();
-    return matchesSearch && matchesStatus;
-  });
+  const filteredUsers = userList.filter(u => 
+    u.name.toLowerCase().includes(searchQ.toLowerCase()) || 
+    u.email.toLowerCase().includes(searchQ.toLowerCase()) || 
+    u.card_id?.toLowerCase().includes(searchQ.toLowerCase())
+  );
 
-  const filteredBorrows = borrowList.filter(b => {
-    const matchesSearch = b.User?.name?.toLowerCase().includes(searchQ.toLowerCase()) || 
-                         b.Book?.title?.toLowerCase().includes(searchQ.toLowerCase());
-    
-    let matchesStatus = true;
-    if (activeTab === 'Overdue') {
-      matchesStatus = b.status === 'overdue';
-    } else if (filterStatus !== 'All') {
-      matchesStatus = b.status.toUpperCase() === filterStatus.toUpperCase();
-    }
-    
-    return matchesSearch && matchesStatus;
-  });
+  const filteredBorrows = borrowList.filter(b => 
+    b.User?.name?.toLowerCase().includes(searchQ.toLowerCase()) || 
+    b.Book?.title?.toLowerCase().includes(searchQ.toLowerCase())
+  );
+
+  if (!user || user.role !== 'admin') return null;
 
   return (
     <>
-      {/* TABS */}
+      {/* DIRECTORY TABS */}
       <div className="flex gap-10 border-b border-border-warm mb-8 overflow-x-auto scrollbar-none">
-        {['All Members', 'Active Borrows', 'Overdue'].map(tab => (
+        {['Members', 'All Borrows', 'Overdue Assets'].map(tab => (
           <button
             key={tab}
-            onClick={() => { setActiveTab(tab); setFilterStatus('All'); setSearchQ(''); }}
+            onClick={() => setActiveTab(tab)}
             className={`pb-4 text-[11px] font-sans font-bold uppercase tracking-[0.2em] transition-all relative
               ${activeTab === tab ? 'text-brown' : 'text-ink-muted hover:text-ink'}
             `}
           >
             {tab}
-            {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-1 bg-brown animate-in fade-in zoom-in-95 duration-300" />}
+            {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-1 bg-brown animate-in fade-in duration-300" />}
           </button>
         ))}
       </div>
 
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-        {/* TOOLBAR */}
-        <div className="flex gap-4 mb-6">
-          <div className="relative flex-1 max-w-sm">
-             <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-muted" />
-             <input 
-               type="text" 
-               placeholder={activeTab === 'All Members' ? "Search members..." : "Search student or book..."}
-               className="w-full bg-parchment border border-border-warm pl-11 pr-4 py-3 text-sm font-sans focus:border-brown focus:outline-none"
-               value={searchQ}
-               onChange={(e) => setSearchQ(e.target.value)}
-             />
-          </div>
-          {activeTab !== 'Overdue' && (
-            <select 
-              className="bg-parchment border border-border-warm px-6 py-3 text-sm font-sans font-bold appearance-none pr-10 focus:outline-none focus:border-brown"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-               <option value="All">All Statuses</option>
-               {activeTab === 'All Members' ? (
-                 <>
-                   <option value="Active">Active</option>
-                   <option value="Inactive">Inactive</option>
-                 </>
-               ) : (
-                 <>
-                   <option value="Active">Active</option>
-                   <option value="Returned">Returned</option>
-                   <option value="Overdue">Overdue</option>
-                 </>
-               )}
-            </select>
-          )}
+        {/* SEARCH BAR */}
+        <div className="relative mb-8 max-w-lg group">
+           <Search size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-ink-muted group-hover:text-brown transition-colors" />
+           <input 
+             type="text" 
+             placeholder={activeTab === 'Members' ? "Query member database..." : "Filter circulation logs..."}
+             className="w-full bg-parchment border border-border-warm pl-12 pr-6 py-4 text-sm font-sans focus:border-brown focus:outline-none transition-all shadow-sm italic"
+             value={searchQ}
+             onChange={(e) => setSearchQ(e.target.value)}
+           />
         </div>
 
         {loading ? (
-          <div className="py-20 flex flex-col items-center justify-center bg-parchment/30 border border-border-warm">
+          <div className="py-20 flex flex-col items-center justify-center bg-parchment/30 border border-border-warm animate-pulse">
             <Loader2 className="animate-spin text-brown mb-4" size={32} />
-            <span className="text-xs font-sans uppercase tracking-widest text-ink-muted font-bold">Verifying Records...</span>
+            <span className="text-xs font-sans uppercase tracking-[0.25em] text-ink-muted font-bold">Synchronising Archives...</span>
           </div>
         ) : (
-          <>
-            {activeTab === 'All Members' && (
-              <div className="bg-parchment border border-border-warm overflow-hidden shadow-sm">
+          <div className="bg-parchment border border-border-warm overflow-hidden shadow-sm">
+            {activeTab === 'Members' ? (
                 <table className="w-full text-left border-collapse">
                   <thead>
                      <tr className="bg-espresso text-parchment/60 font-sans text-[10px] font-bold uppercase tracking-[0.2em]">
-                        <th className="px-6 py-4 border-b border-parchment/10">Member</th>
-                        <th className="px-6 py-4 border-b border-parchment/10">Card ID</th>
-                        <th className="px-6 py-4 border-b border-parchment/10">Joined</th>
-                        <th className="px-6 py-4 border-b border-parchment/10 text-center">Active Borrows</th>
-                        <th className="px-6 py-4 border-b border-parchment/10">Unpaid Fines</th>
+                        <th className="px-6 py-4 border-b border-parchment/10">Scholarly Identity</th>
+                        <th className="px-6 py-4 border-b border-parchment/10">Card Index</th>
+                        <th className="px-6 py-4 border-b border-parchment/10">Financial Dues</th>
                         <th className="px-6 py-4 border-b border-parchment/10">Status</th>
-                        <th className="px-6 py-4 border-b border-parchment/10 text-right">Actions</th>
+                        <th className="px-6 py-4 border-b border-parchment/10 text-right">Insight</th>
                      </tr>
                   </thead>
                   <tbody className="divide-y divide-border-warm">
-                     {filteredUsers.length > 0 ? filteredUsers.map((u) => (
-                        <tr key={u.id} className="hover:bg-cream/40 transition-colors group">
-                           <td className="px-6 py-4">
-                              <div className="flex items-center gap-3">
-                                 <div className="w-9 h-9 bg-brown text-cream flex items-center justify-center rounded-full text-xs font-bold font-serif">
-                                    {u.name.split(' ').map(n=>n[0]).join('')}
-                                 </div>
-                                 <div>
-                                    <div className="text-[13px] font-sans font-bold text-ink group-hover:text-brown transition-colors">{u.name}</div>
-                                    <div className="text-[11px] font-sans text-ink-muted">{u.email}</div>
-                                 </div>
+                     {filteredUsers.map((u) => (
+                        <tr key={u.id} className="hover:bg-cream/50 transition-colors group">
+                           <td className="px-6 py-4 flex items-center gap-3">
+                              <div className="w-10 h-10 bg-brown text-cream flex items-center justify-center rounded-full text-sm font-serif font-bold shadow-sm">
+                                 {u.name[0]}
+                              </div>
+                              <div>
+                                 <div className="text-[13px] font-sans font-bold text-ink group-hover:text-brown transition-colors">{u.name}</div>
+                                 <div className="text-[10px] font-sans text-ink-muted italic">{u.email}</div>
                               </div>
                            </td>
                            <td className="px-6 py-4">
                               <code className="bg-cream border border-border-warm px-2 py-0.5 text-[10px] font-mono font-bold text-ink-muted">{u.card_id}</code>
                            </td>
-                           <td className="px-6 py-4 text-[12px] font-sans font-medium text-ink-muted">{new Date(u.created_at).toLocaleDateString()}</td>
-                           <td className="px-6 py-4 text-[12px] font-sans font-bold text-ink text-center">{u.activeBorrowCount}</td>
                            <td className="px-6 py-4 font-mono text-sm">
-                              {u.totalFineAmount > 0 ? <span className="text-red-600 font-bold">₹{u.totalFineAmount.toFixed(2)}</span> : <span className="text-ink-muted">—</span>}
+                              {u.totalFineAmount > 0 ? <span className="text-red-700 font-bold">₹{u.totalFineAmount.toFixed(2)}</span> : <span className="text-ink-muted/50">—</span>}
                            </td>
                            <td className="px-6 py-4">
                               <span className={`text-[9px] font-sans font-bold uppercase tracking-widest px-2 py-0.5 border
@@ -221,182 +173,141 @@ const UsersAndBorrows = () => {
                                  {u.status}
                               </span>
                            </td>
-                           <td className="px-6 py-4">
+                           <td className="px-6 py-4 text-right">
                               <div className="flex gap-2 justify-end">
                                  <button 
                                    onClick={() => openUserDetail(u)}
-                                   className="bg-blue-50 text-blue-600 border border-blue-100 p-2 hover:bg-blue-600 hover:text-white transition-all"
-                                   title="View Details"
+                                   className="bg-cream border border-border-warm p-2 text-ink-muted hover:border-brown hover:text-brown transition-all"
                                  >
                                     <Eye size={14} />
                                  </button>
                                  <button 
                                    onClick={() => toggleUserStatus(u)}
-                                   className={`p-2 border transition-all ${u.status === 'active' ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-600 hover:text-white' : 'bg-green-50 text-green-600 border-green-100 hover:bg-green-600 hover:text-white'}`}
-                                   title={u.status === 'active' ? 'Deactivate' : 'Activate'}
+                                   className={`p-2 border transition-all ${u.status === 'active' ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-600 hover:text-white' : 'bg-green-50 text-green-700 border-green-100 hover:bg-green-600 hover:text-white'}`}
                                  >
                                     <Power size={14} />
                                  </button>
                               </div>
                            </td>
                         </tr>
-                     )) : (
-                       <tr>
-                          <td colSpan="7" className="px-6 py-10 text-center text-ink-muted italic font-sans text-sm">No members found matching your search.</td>
-                       </tr>
-                     )}
+                     ))}
                   </tbody>
                 </table>
-              </div>
-            )}
-
-            {(activeTab === 'Active Borrows' || activeTab === 'Overdue') && (
-              <div className="bg-parchment border border-border-warm overflow-hidden shadow-sm">
+            ) : (
                 <table className="w-full text-left border-collapse">
                    <thead>
                       <tr className="bg-espresso text-parchment/60 font-sans text-[10px] font-bold uppercase tracking-[0.2em]">
-                         <th className="px-6 py-4 border-b border-parchment/10">Member</th>
-                         <th className="px-6 py-4 border-b border-parchment/10">Book</th>
-                         <th className="px-6 py-4 border-b border-parchment/10">Borrowed</th>
-                         <th className="px-6 py-4 border-b border-parchment/10">Due Date</th>
+                         <th className="px-6 py-4 border-b border-parchment/10">Circulator</th>
+                         <th className="px-6 py-4 border-b border-parchment/10">Archival Volume</th>
+                         <th className="px-6 py-4 border-b border-parchment/10">Maturity Date</th>
                          <th className="px-6 py-4 border-b border-parchment/10 text-center">Status</th>
-                         <th className="px-6 py-4 border-b border-parchment/10 text-right">Actions</th>
+                         <th className="px-6 py-4 border-b border-parchment/10 text-right">Handover</th>
                       </tr>
                    </thead>
                    <tbody className="divide-y divide-border-warm">
-                      {filteredBorrows.length > 0 ? filteredBorrows.map((b) => (
-                         <tr key={b.id} className={`hover:bg-cream/40 transition-colors ${b.status === 'overdue' ? 'bg-red-50/20' : ''}`}>
+                      {(activeTab === 'Overdue Assets' ? filteredBorrows.filter(b=>b.status==='overdue') : filteredBorrows).map((b) => (
+                         <tr key={b.id} className={`hover:bg-cream/50 transition-colors ${b.status === 'overdue' ? 'bg-red-50/30' : ''}`}>
                             <td className="px-6 py-4">
-                               <div className="flex items-center gap-3">
-                                  <div className="w-7 h-7 bg-brown text-cream flex items-center justify-center rounded-full text-[10px] font-bold">
-                                     {b.User?.name?.split(' ').map(n=>n[0]).join('')}
-                                  </div>
-                                  <div className="text-[13px] font-sans font-bold text-ink">{b.User?.name}</div>
-                               </div>
+                               <div className="text-[13px] font-sans font-bold text-ink">{b.User?.name}</div>
+                               <div className="text-[10px] font-mono text-ink-muted">#{b.User?.card_id}</div>
                             </td>
-                            <td className="px-6 py-4">
-                               <div className="text-[13px] font-sans font-medium text-ink truncate max-w-[180px]">{b.Book?.title}</div>
+                            <td className="px-6 py-4 text-[13px] font-sans font-medium text-ink italic truncate max-w-[200px]">
+                               {b.Book?.title}
                             </td>
-                            <td className="px-6 py-4 text-[12px] font-sans text-ink-muted">{new Date(b.borrowed_at).toLocaleDateString()}</td>
-                            <td className="px-6 py-4 text-[12px] font-sans text-ink-muted">{new Date(b.due_date).toLocaleDateString()}</td>
+                            <td className="px-6 py-4 text-[11px] font-sans font-bold text-ink-muted">
+                               {new Date(b.due_date).toLocaleDateString()}
+                            </td>
                             <td className="px-6 py-4 text-center">
-                               <div className="flex flex-col items-center">
-                                  <span className={`text-[9px] font-sans font-bold uppercase tracking-widest px-2 py-0.5 border
-                                    ${b.status === 'active' ? 'bg-green-50 text-green-700 border-green-100' : 
-                                      b.status === 'overdue' ? 'bg-red-50 text-red-700 border-red-100' : 
-                                      'bg-parchment text-ink-muted border-border-warm'}`}>
-                                     {b.status}
-                                  </span>
-                               </div>
+                               <span className={`text-[9px] font-sans font-bold uppercase tracking-widest px-3 py-1 border
+                                 ${b.status === 'active' ? 'bg-green-50 text-green-700 border-green-100 shadow-sm' : 
+                                   b.status === 'overdue' ? 'bg-red-600 text-white border-red-700' : 
+                                   b.status === 'reserved' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                                   'bg-parchment text-ink-muted border-border-warm opacity-40'}`}>
+                                  {b.status}
+                               </span>
                             </td>
                             <td className="px-6 py-4 text-right">
-                               {b.status !== 'returned' ? (
+                               {b.status === 'active' || b.status === 'overdue' ? (
                                  <button 
-                                   onClick={() => markReturned(b.id)}
-                                   className="bg-green-600 text-white text-[10px] font-sans font-bold px-4 py-2 uppercase tracking-widest hover:bg-green-700 transition-colors"
+                                   onClick={() => handleConfirmReturn(b.id)}
+                                   className="bg-espresso text-cream text-[10px] font-sans font-bold px-6 py-2 uppercase tracking-widest hover:bg-black transition-all shadow-md"
                                  >
-                                    Mark Returned
+                                    Confirm Reception
                                  </button>
                                ) : (
-                                 <span className="text-[10px] font-sans font-bold text-ink-muted uppercase tracking-widest italic">Completed</span>
+                                 <span className="text-[10px] font-sans font-bold text-ink-muted uppercase tracking-widest italic opacity-40">—</span>
                                )}
                             </td>
                          </tr>
-                      )) : (
-                        <tr>
-                           <td colSpan="6" className="px-6 py-10 text-center text-ink-muted italic font-sans text-sm">No activity records found.</td>
-                        </tr>
-                      )}
+                      ))}
                    </tbody>
                 </table>
-              </div>
             )}
-          </>
+          </div>
         )}
       </div>
 
-      {/* USER DETAIL MODAL */}
+      {/* MEMBER INSIGHT MODAL */}
       {showUserModal && selectedUser && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-espresso/80 backdrop-blur-sm animate-in fade-in duration-300">
-           <div className="bg-cream max-w-lg w-full overflow-hidden border-t-8 border-brown shadow-2xl relative animate-in slide-in-from-top-4 duration-500">
-              <button 
-                onClick={() => setShowUserModal(false)}
-                className="absolute top-4 right-4 text-ink-muted hover:text-brown transition-colors"
-              >
-                 <X size={24} />
-              </button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-espresso/90 backdrop-blur-md animate-in fade-in duration-300">
+           <div className="bg-cream max-w-xl w-full border border-border-deep shadow-[0_32px_64px_-16px_rgba(0,0,0,0.4)] relative animate-in zoom-in-95 duration-500 overflow-hidden">
+              <div className="h-2 bg-brown w-full" />
+              <button onClick={() => setShowUserModal(false)} className="absolute top-6 right-6 text-ink-muted hover:text-brown transition-all"><X size={24} /></button>
 
-              <div className="p-8">
-                 <div className="flex items-center gap-6 mb-8">
-                    <div className="w-16 h-16 bg-brown text-cream flex items-center justify-center rounded-full text-2xl font-bold font-serif border-4 border-white shadow-lg">
-                       {selectedUser.name.split(' ').map(n=>n[0]).join('')}
+              <div className="p-10">
+                 <div className="flex items-center gap-8 mb-10">
+                    <div className="w-20 h-20 bg-espresso text-cream flex items-center justify-center text-3xl font-serif font-bold shadow-2xl ring-4 ring-parchment">
+                       {selectedUser.name[0]}
                     </div>
                     <div>
-                       <h2 className="font-serif text-3xl font-bold text-ink leading-tight">{selectedUser.name}</h2>
-                       <div className="flex items-center gap-2 mt-1">
-                          <code className="text-xs font-mono font-bold text-ink-muted bg-parchment px-2 py-0.5 border border-border-warm">{selectedUser.card_id}</code>
-                          <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-brown px-2 py-0.5 bg-gold/10 border border-gold/20">{selectedUser.role}</span>
+                       <h2 className="font-serif text-4xl font-bold text-ink leading-tight">{selectedUser.name}</h2>
+                       <div className="flex items-center gap-4 mt-2">
+                          <code className="text-xs font-mono font-bold text-brown bg-brown/5 px-3 py-1 border border-brown/10">{selectedUser.card_id}</code>
+                          <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted">{selectedUser.email}</span>
                        </div>
                     </div>
                  </div>
 
-                 <div className="grid grid-cols-2 gap-y-6 gap-x-12 mb-10 pb-8 border-b border-border-warm">
+                 <div className="grid grid-cols-2 gap-10 mb-12 border-y border-border-warm py-8">
                     <div>
-                       <div className="text-[10px] font-sans font-bold text-ink-muted uppercase tracking-widest mb-1 flex items-center gap-1.5 font-bold italic">Email Address</div>
-                       <div className="text-[13px] font-sans font-medium text-ink">{selectedUser.email}</div>
+                       <div className="text-[10px] font-sans font-bold text-ink-muted uppercase tracking-widest mb-2 italic">Active Circulation</div>
+                       <div className="text-xl font-serif font-bold text-ink">{selectedUser.activeBorrowCount} Volumes</div>
                     </div>
                     <div>
-                       <div className="text-[10px] font-sans font-bold text-ink-muted uppercase tracking-widest mb-1 font-bold italic">Joined Date</div>
-                       <div className="text-[13px] font-sans font-medium text-ink">{new Date(selectedUser.created_at).toLocaleDateString()}</div>
-                    </div>
-                    <div>
-                       <div className="text-[10px] font-sans font-bold text-ink-muted uppercase tracking-widest mb-1 font-bold italic">Current Status</div>
-                       <div className="text-[13px] font-sans font-bold text-ink uppercase text-[11px] tracking-wider">{selectedUser.status}</div>
-                    </div>
-                    <div>
-                       <div className="text-[10px] font-sans font-bold text-ink-muted uppercase tracking-widest mb-1 font-bold italic">Active Fines</div>
-                       <div className={`text-[13px] font-sans font-bold ${selectedUser.totalFineAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {selectedUser.totalFineAmount > 0 ? `₹${selectedUser.totalFineAmount.toFixed(2)}` : 'None'}
+                       <div className="text-[10px] font-sans font-bold text-ink-muted uppercase tracking-widest mb-2 italic">Financial Liability</div>
+                       <div className={`text-xl font-serif font-bold ${selectedUser.totalFineAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          ₹{selectedUser.totalFineAmount.toFixed(2)}
                        </div>
                     </div>
                  </div>
 
-                 <div className="space-y-4">
-                    <h3 className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-ink-muted mb-4">Active Circulation</h3>
-                    {userBorrows.filter(b => b.status !== 'returned').map(b => (
-                       <div key={b.id} className="bg-parchment p-3 border border-border-warm flex gap-4 items-center group hover:border-brown transition-colors">
-                          <div className="shrink-0 -mt-2">
-                             <div className="w-8 h-12 bg-espresso border-l-2 border-gold shadow-sm" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                             <div className="text-[12px] font-sans font-bold text-ink truncate group-hover:text-brown transition-colors">{b.Book?.title}</div>
-                             <div className="flex items-center gap-2 mt-0.5">
-                                <span className={`text-[8px] font-sans font-bold uppercase px-1.5 border ${b.status === 'overdue' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-700 border-green-100'}`}>
-                                   {b.status}
-                                </span>
-                                <span className="text-[10px] font-sans text-ink-muted font-medium">Due {new Date(b.due_date).toLocaleDateString()}</span>
+                 <section>
+                    <h3 className="text-[11px] font-sans font-bold uppercase tracking-[0.25em] text-ink-muted mb-6 flex items-center gap-2">
+                       <History size={14} className="text-brown" /> Archival Record
+                    </h3>
+                    <div className="space-y-3 max-h-[200px] overflow-y-auto pr-4 scrollbar-thin">
+                       {userBorrows.map(b => (
+                          <div key={b.id} className="bg-parchment p-4 border border-border-warm flex justify-between items-center group hover:border-brown transition-colors">
+                             <div className="min-w-0">
+                                <div className="text-[13px] font-sans font-bold text-ink truncate group-hover:text-brown transition-colors">{b.Book?.title}</div>
+                                <div className="text-[9px] font-sans text-ink-muted uppercase tracking-widest mt-0.5">Due {new Date(b.due_date).toLocaleDateString()}</div>
                              </div>
+                             <span className={`text-[8px] font-sans font-bold uppercase px-2 py-0.5 border ${b.status === 'active' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-parchment text-ink-muted/50 border-border-warm'}`}>
+                                {b.status}
+                             </span>
                           </div>
-                       </div>
-                    ))}
-                    {userBorrows.filter(b => b.status !== 'returned').length === 0 && (
-                       <div className="text-center py-6 text-sm italic text-ink-muted border border-dashed border-border-warm font-serif">No active borrows found.</div>
-                    )}
-                 </div>
-              </div>
+                       ))}
+                       {userBorrows.length === 0 && <p className="text-center py-6 text-sm italic text-ink-muted font-serif">The archive contains no previous circulation logs.</p>}
+                    </div>
+                 </section>
 
-              <div className="bg-parchment p-6 border-t border-border-warm flex justify-end">
-                 <button 
-                   onClick={() => setShowUserModal(false)}
-                   className="bg-espresso text-cream px-10 py-3 text-[11px] font-sans font-bold uppercase tracking-widest hover:bg-black transition-all"
-                 >
-                    Close Member Insight
+                 <button onClick={() => setShowUserModal(false)} className="w-full mt-10 py-4 bg-espresso text-cream text-[11px] font-sans font-bold uppercase tracking-widest hover:bg-black transition-all shadow-xl">
+                    Dismiss Portfolio
                  </button>
               </div>
            </div>
         </div>
       )}
-
     </>
   );
 };

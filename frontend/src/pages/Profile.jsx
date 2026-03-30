@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import api from '../api/client';
 import { 
   User, 
   Mail, 
@@ -28,8 +29,40 @@ const Profile = () => {
   const [selectedGenres, setSelectedGenres] = useState(['Classic Fiction', 'Science Fiction']);
   const [readingGoal, setReadingGoal] = useState(30);
 
+  const [stats, setStats] = useState({
+    borrowed: 0,
+    active: 0,
+    fines: 0
+  });
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    if (!user) { navigate('/'); openAuthModal('login') }
+    if (!user) { navigate('/'); openAuthModal('login'); return; }
+    
+    const fetchStats = async () => {
+      setLoading(true);
+      try {
+        const [borrowsRes, finesRes] = await Promise.all([
+          api.get('/borrows/my'),
+          api.get('/fines/my').catch(() => ({ data: { totalOutstanding: 0 } }))
+        ]);
+        
+        const allBorrows = borrowsRes.data.borrows || [];
+        const activeLoans = allBorrows.filter(b => b.status === 'active' || b.status === 'overdue' || b.status === 'reserved').length;
+        
+        setStats({
+          borrowed: allBorrows.length,
+          active: activeLoans,
+          fines: finesRes.data.totalOutstanding || 0
+        });
+      } catch (err) {
+        console.error('Failed to sync profile metrics:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchStats();
   }, [user]);
 
   if (!user) return null;
@@ -133,18 +166,18 @@ const Profile = () => {
                 <div className="h-px bg-border-warm my-6" />
 
                 {/* STATS */}
-                <div className="space-y-4">
-                   {[
-                     ['Books Borrowed', '5'],
-                     ['Currently Reading', '2'],
-                     ['Outstanding Fines', '₹9.50', 'text-red-600']
-                   ].map(([label, value, color]) => (
-                     <div key={label} className="flex justify-between items-center text-[13px] font-sans border-b border-border-warm/30 pb-3 last:border-none last:pb-0 group">
-                        <span className="text-ink-muted group-hover:text-ink transition-colors">{label}</span>
-                        <span className={`font-bold ${color || 'text-ink'}`}>{value}</span>
-                     </div>
-                   ))}
-                </div>
+                 <div className="space-y-4">
+                    {[
+                      ['Books Borrowed', stats.borrowed],
+                      ['Currently Reading', stats.active],
+                      ['Outstanding Fines', `₹${parseFloat(stats.fines).toFixed(2)}`, stats.fines > 0 ? 'text-red-600' : 'text-green-600']
+                    ].map(([label, value, color]) => (
+                      <div key={label} className="flex justify-between items-center text-[13px] font-sans border-b border-border-warm/30 pb-3 last:border-none last:pb-0 group">
+                         <span className="text-ink-muted group-hover:text-ink transition-colors">{label}</span>
+                         <span className={`font-bold ${color || 'text-ink'}`}>{value}</span>
+                      </div>
+                    ))}
+                 </div>
              </div>
           </aside>
 

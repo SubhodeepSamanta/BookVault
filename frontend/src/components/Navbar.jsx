@@ -35,7 +35,7 @@ const Navbar = () => {
           {user && (
             <>
               <Link to="/my-library" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/70 hover:text-gold transition-colors">My Library</Link>
-              <Link to="/reservations" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/70 hover:text-gold transition-colors">Reservations</Link>
+              <Link to="/reservations" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/70 hover:text-gold transition-colors">Logistics</Link>
               <Link to="/fines" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/70 hover:text-gold transition-colors">Fines</Link>
               {user.role === 'admin' && (
                 <Link to="/admin/dashboard" className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-gold hover:text-gold-light transition-colors border border-gold/30 px-3 py-1 ml-4">Admin Panel</Link>
@@ -97,7 +97,7 @@ const Navbar = () => {
             {user && (
               <>
                 <Link to="/my-library" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-parchment hover:text-gold transition-colors">My Library</Link>
-                <Link to="/reservations" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-parchment hover:text-gold transition-colors">Reservations</Link>
+                <Link to="/reservations" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-parchment hover:text-gold transition-colors">Logistics</Link>
                 <Link to="/fines" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-parchment hover:text-gold transition-colors">Fines</Link>
                 {user.role === 'admin' && (
                   <Link to="/admin/dashboard" onClick={() => setMobileMenuOpen(false)} className="text-xl font-serif font-bold text-gold">Admin Panel</Link>

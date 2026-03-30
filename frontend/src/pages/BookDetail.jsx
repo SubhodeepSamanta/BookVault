@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   ArrowLeft, 
+  ArrowRight,
   Calendar, 
   Book as BookIcon, 
   Globe, 
@@ -13,7 +14,9 @@ import {
   Clock,
   Layout,
   TrendingUp,
-  Loader2
+  Loader2,
+  Bookmark,
+  CalendarCheck
 } from 'lucide-react';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -21,10 +24,8 @@ import { useToast } from '../context/ToastContext';
 import BookCover from '../components/BookCover';
 import BookCard from '../components/BookCard';
 import StarRating from '../components/StarRating';
-import StarPicker from '../components/StarPicker';
-import ReserveModal from '../components/ReserveModal';
 import ProgressRing from '../components/ProgressRing';
-
+import ReserveModal from '../components/ReserveModal';
 
 const BookDetail = () => {
   const { id } = useParams();
@@ -38,46 +39,54 @@ const BookDetail = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   
-  const [readingProgress, setReadingProgress] = useState(0); // This will hold the percent
+  const [userBorrow, setUserBorrow] = useState(null);
+  const [readingProgress, setReadingProgress] = useState(0);
   const [pagesRead, setPagesRead] = useState(0); 
   const [revRating, setRevRating] = useState(5);
-
   const [revComment, setRevComment] = useState('');
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchBookData = async () => {
-      setLoading(true);
-      try {
-        const [bookRes, reviewsRes, similarRes, progressRes] = await Promise.all([
-          api.get(`/books/${id}`),
-          api.get(`/reviews/book/${id}`),
-          api.get(`/books?limit=4`), // Simple similar books for now
-          user ? api.get('/progress/my') : Promise.resolve({ data: { progress: [] } })
+  const fetchBookData = async () => {
+    setLoading(true);
+    try {
+      const [bookRes, reviewsRes, similarRes] = await Promise.all([
+        api.get(`/books/${id}`),
+        api.get(`/reviews/book/${id}`),
+        api.get(`/books?limit=4`)
+      ]);
+
+      setBook(bookRes.data.book);
+      setReviews(reviewsRes.data.reviews || []);
+      setAvgRating(reviewsRes.data.avg_rating || 0);
+      setSimilarBooks(similarRes.data.books.filter(b => b.id !== parseInt(id)).slice(0, 3));
+      
+      if (user) {
+        // Fetch specific borrow/progress for this book
+        const [borrowsRes, progressRes] = await Promise.all([
+          api.get('/borrows/my'),
+          api.get('/progress/my')
         ]);
-
-        setBook(bookRes.data.book);
-        setReviews(reviewsRes.data.reviews);
-        setAvgRating(reviewsRes.data.avg_rating);
-        setSimilarBooks(similarRes.data.books.filter(b => b.id !== parseInt(id)).slice(0, 3));
         
-        if (user) {
-          const myProg = progressRes.data.progress.find(p => p.book_id === parseInt(id));
-          if (myProg) {
-            setReadingProgress(myProg.percent);
-            setPagesRead(myProg.pages_read || 0);
-          }
-        }
+        const myBorrow = borrowsRes.data.borrows?.find(b => b.book_id === parseInt(id) && b.status !== 'returned' && b.status !== 'cancelled');
+        setUserBorrow(myBorrow);
 
-      } catch (err) {
-        console.error('Error fetching book details:', err);
-      } finally {
-        setLoading(false);
+        const myProg = progressRes.data.progress?.find(p => p.book_id === parseInt(id));
+        if (myProg) {
+          setReadingProgress(myProg.percent || 0);
+          setPagesRead(myProg.pages_read || 0);
+        }
       }
-    };
+
+    } catch (err) {
+      console.error('Error fetching book details:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchBookData();
   }, [id, user]);
 
@@ -93,9 +102,9 @@ const BookDetail = () => {
   if (!book) {
     return (
       <div className="min-h-screen bg-cream flex flex-col items-center justify-center p-6">
-        <h2 className="font-serif text-3xl text-ink mb-4">Book not found</h2>
-        <Link to="/catalogue" className="text-brown font-bold uppercase tracking-widest hover:underline">
-          Back to Catalogue
+        <h2 className="font-serif text-3xl text-ink mb-4 text-center">Volume not found in the archives</h2>
+        <Link to="/catalogue" className="text-brown font-bold uppercase tracking-widest hover:underline flex items-center gap-2">
+          <ArrowLeft size={16} /> Return to Catalogue
         </Link>
       </div>
     );
@@ -108,36 +117,17 @@ const BookDetail = () => {
       openAuthModal('login');
       return;
     }
-    if (!isAvailable) {
-      handleJoinWaitlist();
-      return;
-    }
     setIsReserveModalOpen(true);
   };
 
   const handleReserveSubmit = async (reservationData) => {
     try {
       await api.post('/borrows', reservationData);
-      addToast(`Successfully reserved "${book.title}" for pickup!`, 'success');
-      // Refresh book data
-      const res = await api.get(`/books/${id}`);
-      setBook(res.data.book);
+      addToast(`Successfully reserved "${book.title}"!`, 'success');
+      fetchBookData();
     } catch (err) {
       addToast(err.response?.data?.error || 'Failed to complete reservation', 'error');
-      throw err; // Re-throw for modal submitting state
-    }
-  };
-
-  const handleJoinWaitlist = async () => {
-    if (!user) {
-      openAuthModal('login');
-      return;
-    }
-    try {
-      await api.post('/reservations', { bookId: book.id });
-      addToast(`Joined the waitlist for "${book.title}"!`, 'success');
-    } catch (err) {
-      addToast(err.response?.data?.error || 'Failed to join waitlist', 'error');
+      throw err;
     }
   };
 
@@ -148,12 +138,11 @@ const BookDetail = () => {
         pages_read: parseInt(pagesRead) 
       });
       setReadingProgress(res.data.progress.percent);
-      addToast(`Progress updated to ${res.data.progress.percent}%!`, 'success');
+      addToast(`Reading progress chronicled: ${res.data.progress.percent}%`, 'success');
     } catch (err) {
       addToast(err.response?.data?.error || 'Failed to update progress', 'error');
     }
   };
-
 
   const handleReviewSubmit = async () => {
     if (!revComment.trim()) return;
@@ -165,13 +154,10 @@ const BookDetail = () => {
         comment: revComment 
       });
       setReviewSubmitted(true);
-      addToast('Review submitted!', 'success');
-      // Refresh reviews
-      const res = await api.get(`/reviews/book/${id}`);
-      setReviews(res.data.reviews);
-      setAvgRating(res.data.avg_rating);
+      addToast('Review published.', 'success');
+      fetchBookData();
     } catch (err) {
-      addToast(err.response?.data?.error || 'Failed to submit review', 'error');
+      addToast(err.response?.data?.error || 'Review submission failed.', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -179,401 +165,347 @@ const BookDetail = () => {
 
   return (
     <div className="bg-cream min-h-screen">
-      {/* HERO BAND */}
-      <div className="bg-espresso py-4 px-6 border-b border-parchment/10">
-        <div className="max-w-7xl mx-auto">
-          <Link to="/catalogue" className="flex items-center gap-2 text-parchment/50 hover:text-gold transition-colors text-sm font-sans">
-            <ArrowLeft size={16} />
-            Back to Catalogue
-          </Link>
-        </div>
+      {/* BREATHING BAND */}
+      <div className="bg-espresso h-1.5 w-full" />
+
+      {/* BACK NAVIGATION */}
+      <div className="max-w-7xl mx-auto px-6 py-6 border-b border-border-warm flex items-center justify-between">
+        <Link to="/catalogue" className="flex items-center gap-2 text-ink-muted hover:text-brown transition-colors text-xs font-sans font-bold uppercase tracking-widest">
+          <ArrowLeft size={16} />
+          Back to Collection
+        </Link>
+        <div className="text-[10px] font-mono text-ink-muted opacity-40">BV-VOL-{book.id}</div>
       </div>
 
-      {/* MAIN CONTENT */}
-      <div className="max-w-7xl mx-auto px-6 pt-32 pb-12 flex flex-col lg:flex-row gap-12">
+      {/* MAIN CONTENT GRID */}
+      <div className="max-w-7xl mx-auto px-6 pt-16 pb-24 grid grid-cols-1 lg:grid-cols-12 gap-16">
         
-        {/* LEFT COLUMN: Actions */}
-        <aside className="w-full lg:w-[320px] flex-shrink-0 lg:pt-8 animate-in fade-in slide-in-from-left-4 duration-500">
-          <div className="lg:sticky lg:top-24">
-            <BookCover book={book} className="w-full shadow-2xl rounded-none" size="xl" />
-            
-            <div className="mt-8 space-y-6">
-              <div className="p-4 bg-parchment/50 border border-border-warm">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className={`w-2 h-2 rounded-full ${isAvailable ? 'bg-green-600' : 'bg-red-600'}`} />
-                  <span className="text-sm font-sans font-bold text-ink">
-                    {isAvailable ? 'Available to borrow' : 'All copies borrowed'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-end mb-2">
-                  <span className="text-[11px] font-sans text-ink-muted">
-                    {book.available_copies} of {book.total_copies} units available
-                  </span>
-                  <span className="text-[11px] font-sans font-bold text-ink">
-                    {Math.round((book.available_copies / book.total_copies) * 100)}%
-                  </span>
-                </div>
-                <div className="h-1 w-full bg-border-warm">
-                  <div 
-                    className="h-full bg-brown transition-all duration-1000" 
-                    style={{ width: `${(book.available_copies / book.total_copies) * 100}%` }}
-                  />
-                </div>
-                {!isAvailable && (
-                  <p className="mt-4 text-[10px] text-ink-muted italic font-sans leading-relaxed">
-                    Physical collections are currently at maximum capacity. Join the digital waitlist to be notified of availability.
-                  </p>
-                )}
+        {/* LEFT: VISUAL & LOGISTICS (4 cols) */}
+        <aside className="lg:col-span-4 animate-in fade-in slide-in-from-left-6 duration-700">
+           <div className="sticky top-24">
+              <div className="shadow-2xl ring-1 ring-border-warm mb-10 overflow-hidden transform hover:-translate-y-1 transition-transform duration-500">
+                 <BookCover book={book} size="xl" className="w-full h-auto" />
               </div>
 
-              <div className="flex flex-col gap-2">
-                {isAvailable ? (
-                  <button 
-                    onClick={handleReserveClick}
-                    className="w-full bg-espresso text-cream py-4 font-sans font-bold uppercase tracking-[0.2em] text-xs hover:bg-espresso-light transition-all flex items-center justify-center gap-3 shadow-xl"
-                  >
-                    Reserve for Pickup
-                  </button>
-                ) : (
-                  <button 
-                    onClick={handleJoinWaitlist}
-                    className="w-full bg-brown text-cream py-4 font-sans font-bold uppercase tracking-[0.2em] text-xs hover:bg-brown-light transition-all flex items-center justify-center gap-3 shadow-lg"
-                  >
-                    Join Academic Waitlist
-                  </button>
-                )}
+              {/* LOGISTICS CARD */}
+              <div className="bg-parchment border border-border-warm p-6 shadow-sm">
+                 <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2">
+                       <Layout size={14} className="text-brown" />
+                       <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-ink">Circulation Status</span>
+                    </div>
+                     <div className="flex flex-col items-end gap-1">
+                        <span className={`text-[9px] font-sans font-bold uppercase tracking-widest px-2 py-0.5 border rounded-sm
+                           ${isAvailable ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-100'}`}>
+                           {book.available_copies > 0 ? `${book.available_copies} Units Available` : 'All Units Allocated'}
+                        </span>
+                        <div className="text-[8px] font-sans text-ink-muted uppercase tracking-widest opacity-60">Total Archival Stock: {book.total_copies}</div>
+                     </div>
+                 </div>
 
-                {book.gutenberg_url && (
-                  <a 
-                    href={book.gutenberg_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full border border-brown/30 text-brown py-3.5 font-sans font-medium uppercase tracking-[0.05em] text-xs hover:bg-brown/5 transition-all flex items-center justify-center gap-2 mt-2"
-                  >
-                    <Download size={16} />
-                    Access Digital Volume
-                  </a>
-                )}
+                 {!userBorrow ? (
+                    <div className="space-y-4">
+                       <p className="text-xs font-sans text-ink-muted italic mb-4 leading-relaxed">
+                          {isAvailable 
+                             ? "This volume is currently available for 14-day physical collection. Reservations are processed within 24 hours."
+                             : "All physical copies are currently in active academic circulation. You may join the waitlist for the next available slot."}
+                       </p>
+                       <button 
+                          onClick={handleReserveClick}
+                          disabled={!isAvailable}
+                          className={`w-full py-4 text-[11px] font-sans font-bold uppercase tracking-[0.2em] shadow-md transition-all active:scale-[0.98]
+                             ${isAvailable ? 'bg-espresso text-cream hover:bg-black' : 'bg-parchment border border-border-warm text-ink-muted cursor-not-allowed opacity-50'}`}
+                       >
+                          {isAvailable ? "Reserve for Pickup" : "Copies at Capacity"}
+                       </button>
+                    </div>
+                 ) : (
+                    <div className="bg-cream border border-brown/20 p-4 relative overflow-hidden">
+                       <div className="absolute top-0 right-0 p-2 opacity-5">
+                          <CheckCircle size={48} className="text-brown" />
+                       </div>
+                       <div className="text-[10px] font-sans font-bold text-brown uppercase tracking-widest mb-1 italic">Your Current Access</div>
+                       <h4 className="text-sm font-sans font-bold text-ink mb-3">
+                          {userBorrow.status === 'reserved' ? 'Scheduled for Collection' : 
+                           userBorrow.status === 'active' ? 'Currently Borrowed' : 'Overdue Status'}
+                       </h4>
+                       <Link to="/reservations" className="inline-flex items-center gap-2 text-[10px] font-sans font-bold text-espresso underline underline-offset-4 hover:text-brown transition-colors">
+                          Go to Logistics Hub <ArrowRight size={12} />
+                       </Link>
+                    </div>
+                 )}
+
+                 {book.gutenberg_url && (
+                    <a 
+                       href={book.gutenberg_url}
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       className="w-full mt-4 flex items-center justify-center gap-2 py-3 border border-border-warm text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted hover:border-brown hover:text-brown transition-all"
+                    >
+                       <Download size={14} /> Digital Copy (External)
+                    </a>
+                 )}
               </div>
-
-
-              {user && (
-                <div className="bg-parchment border border-border-warm p-4 group transition-colors hover:border-brown/40">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CreditCard size={14} className="text-brown" />
-                    <span className="text-[11px] font-sans uppercase tracking-widest text-ink-muted font-bold">Your Library Card</span>
-                  </div>
-                  <div className="font-mono text-sm font-bold text-ink tracking-widest">
-                    {user.card_id}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+           </div>
         </aside>
 
-        {/* RIGHT COLUMN: Details */}
-        <main className="flex-1 animate-in fade-in slide-in-from-right-4 duration-500 delay-100">
-          <div className="mb-8">
-            <span className="bg-brown/10 text-brown text-[10px] uppercase tracking-[0.2em] px-3 py-1 rounded-full font-bold inline-block mb-4">
-              {book.genre}
-            </span>
-            <h1 className="font-serif text-4xl md:text-5xl text-ink font-bold leading-tight mb-2">
-              {book.title}
-            </h1>
-            <p className="font-serif italic text-2xl text-ink-muted">
-              by <span className="text-ink decoration-gold underline underline-offset-4">{book.author}</span>
-            </p>
-
-            <div className="flex flex-wrap items-center gap-y-4 gap-x-8 mt-8">
-              <div className="flex items-center gap-2 text-ink-muted">
-                <Calendar size={16} className="text-gold" />
-                <span className="text-sm font-sans">{book.published_year}</span>
+        {/* RIGHT: SCHOLARLY DETAILS (8 cols) */}
+        <main className="lg:col-span-8 animate-in fade-in slide-in-from-right-6 duration-700">
+           <header className="mb-12">
+              <div className="flex items-center gap-3 mb-6">
+                 <span className="bg-espresso text-cream text-[9px] font-sans font-bold uppercase tracking-[0.25em] px-3 py-1">
+                    {book.genre}
+                 </span>
+                 <div className="h-px flex-1 bg-border-warm opacity-40" />
               </div>
-              <div className="flex items-center gap-2 text-ink-muted">
-                <BookIcon size={16} className="text-gold" />
-                <span className="text-sm font-sans">{book.pages} pages</span>
-              </div>
-              <div className="flex items-center gap-2 text-ink-muted">
-                <Globe size={16} className="text-gold" />
-                <span className="text-sm font-sans">{book.language}</span>
-              </div>
-              <div className="flex items-center gap-2 text-ink-muted">
-                <Barcode size={16} className="text-gold" />
-                <span className="text-sm font-sans">ISBN {book.isbn}</span>
-              </div>
-            </div>
+              <h1 className="font-serif text-5xl md:text-6xl font-bold text-ink leading-tight mb-4">{book.title}</h1>
+              <p className="font-serif text-2xl italic text-ink-muted">
+                 by <span className="text-ink font-bold border-b-2 border-gold/30 pb-0.5">{book.author}</span>
+              </p>
 
-            <div className="flex items-center gap-4 mt-8 pt-8 border-t border-border-warm">
-               <div className="flex items-center gap-3">
-                  <StarRating rating={avgRating} size={22} />
-                  <span className="font-serif text-2xl font-bold text-ink">{avgRating}</span>
-               </div>
-               <div className="h-6 w-px bg-border-warm" />
-               <div className="text-sm font-sans text-ink-muted">
-                 Based on <span className="text-brown font-bold">{reviews.length} verifying reviews</span>
-               </div>
-            </div>
-          </div>
-
-          {/* TABS */}
-          <div className="mt-12">
-            <div className="flex border-b border-border-warm">
-              {['overview', 'reviews', 'reading progress'].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`
-                    relative px-0 py-4 mr-10 font-sans text-xs uppercase tracking-[0.15em] transition-all
-                    ${activeTab === tab ? 'text-ink font-bold' : 'text-ink-muted hover:text-ink'}
-                  `}
-                >
-                  {tab}
-                  {activeTab === tab && (
-                    <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-brown" />
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <div className="py-8 min-h-[400px]">
-              {activeTab === 'overview' && (
-                <div className="animate-in fade-in duration-300">
-                  <p className="font-serif text-lg leading-relaxed text-ink-soft mb-12 text-justify">
-                     {book.description}
-                  </p>
-
-                  <h3 className="text-[11px] font-sans font-bold uppercase tracking-[0.25em] text-ink-muted mb-6 border-b border-border-warm pb-3">Technical Specifications</h3>
-                  <table className="w-full border-collapse">
-                    <tbody>
-                      {[
-                        ['International Standard Book Number (ISBN)', book.isbn],
-                        ['Disciplinary Genre', book.genre],
-                        ['Original Publication Year', book.published_year],
-                        ['Physical Pagination', `${book.pages} pages`],
-                        ['Instructional Language', book.language],
-                        ['Live Resource Availability', `${book.available_copies} of ${book.total_copies} units`]
-                      ].map(([label, value], i) => (
-                        <tr key={i} className="border-b border-border-warm group">
-                          <td className="py-4 text-xs font-sans font-medium text-ink-muted uppercase tracking-wider w-1/2">{label}</td>
-                          <td className="py-4 text-sm font-sans font-bold text-ink">{value}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-
-                  <div className="mt-16">
-                     <h3 className="text-[11px] font-sans font-bold uppercase tracking-[0.25em] text-ink-muted mb-8">You Might Also Like</h3>
-                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                       {similarBooks.map(b => (
-                         <BookCard key={b.id} book={b} />
-                       ))}
-                     </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'reviews' && (
-                <div className="animate-in fade-in duration-300">
-                  {/* Rating breakdown */}
-                  <div className="bg-parchment border border-border-warm p-8 mb-10 flex flex-col md:flex-row gap-10 items-center">
-                    <div className="text-center md:text-left">
-                       <div className="font-serif text-7xl font-bold text-ink leading-none">{avgRating}</div>
-                       <div className="text-sm text-ink-muted mt-2">out of 5 stars</div>
-                       <div className="mt-4"><StarRating rating={avgRating} size={18} /></div>
-                       <div className="text-[11px] font-sans uppercase tracking-widest text-ink-muted mt-2 font-bold">{reviews.length} reviews</div>
+              <div className="flex flex-wrap items-center gap-x-10 gap-y-4 mt-10">
+                 {[
+                    { icon: Calendar, val: book.published_year, label: 'Edition' },
+                    { icon: BookIcon, val: `${book.pages} pp`, label: 'Pagination' },
+                    { icon: Globe, val: book.language, label: 'Linguistic' },
+                    { icon: Barcode, val: book.isbn, label: 'Reference' }
+                 ].map((stat, i) => (
+                    <div key={i} className="flex flex-col gap-1">
+                       <div className="flex items-center gap-2 text-brown">
+                          <stat.icon size={13} />
+                          <span className="text-xs font-sans font-bold text-ink uppercase tracking-wider">{stat.val}</span>
+                       </div>
+                       <span className="text-[9px] font-sans text-ink-muted uppercase tracking-[0.2em] italic pl-5 font-bold">{stat.label}</span>
                     </div>
-                    
-                    <div className="flex-1 w-full space-y-3">
-                      {[5, 4, 3, 2, 1].map((s) => {
-                        const count = reviews.filter(r => r.rating === s).length;
-                        const pct = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
-                        return (
-                          <div key={s} className="flex items-center gap-4">
-                            <span className="text-xs font-sans text-ink-muted w-4">{s}★</span>
-                            <div className="flex-1 h-2 bg-border-warm">
-                              <div className="h-full bg-gold" style={{ width: `${pct}%` }} />
-                            </div>
-                            <span className="text-[10px] font-sans text-ink-muted w-10 text-right">{Math.round(pct)}%</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                 ))}
+              </div>
+           </header>
 
-                  {/* Review list */}
-                  <div className="space-y-0">
-                    {reviews.map((review) => (
-                      <div key={review.id} className="py-8 border-b border-border-warm last:border-none">
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="w-10 h-10 rounded-full bg-brown flex items-center justify-center text-cream font-bold text-xs">
-                            {review.User?.name?.split(' ').map(n => n[0]).join('')}
+           {/* SCHOLARLY TABS */}
+           <div className="mt-16">
+              <div className="flex gap-12 border-b border-border-warm overflow-x-auto scrollbar-none">
+                 {['overview', 'reviews', 'reading journal'].map(tab => (
+                    <button
+                       key={tab}
+                       onClick={() => setActiveTab(tab)}
+                       className={`pb-4 text-[11px] font-sans font-bold uppercase tracking-[0.25em] transition-all relative
+                          ${activeTab === tab ? 'text-brown' : 'text-ink-muted hover:text-ink'}`}
+                    >
+                       {tab}
+                       {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-brown animate-in fade-in slide-in-from-bottom-2 duration-300" />}
+                    </button>
+                 ))}
+              </div>
+
+              <div className="py-10 min-h-[400px]">
+                 {activeTab === 'overview' && (
+                    <div className="animate-in fade-in duration-500">
+                       <div className="font-serif text-xl leading-relaxed text-ink-soft space-y-8 text-justify italic opacity-90 first-letter:text-5xl first-letter:font-serif first-letter:mr-3 first-letter:float-left first-letter:text-brown border-l-4 border-parchment pl-8 py-2">
+                          {book.description || "No scholarly abstract available for this volume."}
+                       </div>
+
+                       <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-12">
+                          <div className="bg-parchment p-8 border border-border-warm">
+                             <h4 className="text-[10px] font-sans font-bold uppercase tracking-[0.2em] text-ink-muted mb-8 border-b border-border-deep pb-2">Technical Metadata</h4>
+                             <table className="w-full space-y-4">
+                                <tbody className="divide-y divide-border-warm/50">
+                                   {[
+                                      ['Access Protocol', 'Physical Collection / Digital'],
+                                      ['Archival ID', `BV-VOL-${book.id}`],
+                                      ['Copies in Reserve', book.available_copies],
+                                      ['Verified Ratings', reviews.length]
+                                   ].map(([l, v], i) => (
+                                      <tr key={i} className="group">
+                                         <td className="py-3 text-[10px] font-sans font-bold text-ink-muted uppercase tracking-widest">{l}</td>
+                                         <td className="py-3 text-xs font-sans font-bold text-ink text-right">{v}</td>
+                                      </tr>
+                                   ))}
+                                </tbody>
+                             </table>
                           </div>
                           <div>
-                            <div className="text-sm font-sans font-bold text-ink">{review.User?.name}</div>
-                            <div className="text-[11px] font-sans text-ink-muted">{new Date(review.created_at).toLocaleDateString()}</div>
+                             <h4 className="text-[10px] font-sans font-bold uppercase tracking-[0.2em] text-ink-muted mb-6">Similar Volumes</h4>
+                             <div className="grid grid-cols-2 gap-6">
+                                {similarBooks.map(b => (
+                                   <Link key={b.id} to={`/book/${b.id}`} className="group block">
+                                      <div className="shadow-md mb-2 group-hover:scale-105 transition-transform">
+                                         <BookCover book={b} height={140} />
+                                      </div>
+                                      <div className="text-[10px] font-sans font-bold text-ink truncate uppercase tracking-widest transition-colors group-hover:text-brown">{b.title}</div>
+                                   </Link>
+                                ))}
+                             </div>
                           </div>
-                          <div className="ml-auto bg-green-50 text-green-700 text-[9px] font-sans font-bold uppercase tracking-widest px-2 py-0.5 border border-green-100 flex items-center gap-1">
-                            <CheckCircle size={10} /> Verified Borrower
-                          </div>
-                        </div>
-                        <div className="mb-3"><StarRating rating={review.rating} size={12} /></div>
-                        <p className="font-sans text-sm text-ink-soft leading-relaxed">{review.comment}</p>
-                      </div>
-                    ))}
-                    {reviews.length === 0 && (
-                      <div className="py-12 text-center text-ink-muted italic font-sans text-sm">
-                        No reviews yet. Be the first to share your perspective.
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Write a review */}
-                  <div className="mt-12 bg-parchment border border-border-warm p-8">
-                    {!user ? (
-                      <div className="text-center py-6">
-                        <div className="flex justify-center mb-4 text-border-deep"><Lock size={40} /></div>
-                        <h4 className="font-serif text-2xl font-bold text-ink mb-2">Sign in to leave a review</h4>
-                        <p className="text-sm text-ink-muted mb-6">Only registered members who have borrowed this volume can share their thoughts.</p>
-                        <button 
-                          onClick={() => openAuthModal('login')}
-                          className="bg-espresso text-cream px-10 py-3.5 font-sans font-bold uppercase tracking-widest text-xs hover:bg-espresso-light"
-                        >
-                          Sign In
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-6">
-                        {reviewSubmitted ? (
-                          <div className="text-center py-10 animate-in zoom-in-95 duration-500">
-                             <div className="flex justify-center mb-4 text-gold"><CheckCircle size={48} /></div>
-                             <h4 className="font-serif text-2xl font-bold text-ink mb-2">Review submitted</h4>
-                             <p className="text-sm text-ink-muted">Thank you for sharing your academic perspective with the community.</p>
-                             <button onClick={() => setReviewSubmitted(false)} className="mt-6 text-sm text-brown font-bold tracking-widest uppercase underline">Write another</button>
-                          </div>
-                        ) : (
-                          <>
-                            <h4 className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-ink-muted mb-2">Your Review</h4>
-                            <div className="space-y-4">
-                              <div>
-                                <p className="text-xs text-ink-muted font-sans mb-3">Rate your reading experience</p>
-                                <div className="flex gap-1">
-                                  {[1, 2, 3, 4, 5].map(s => (
-                                    <button 
-                                      key={s} 
-                                      onClick={() => setRevRating(s)}
-                                      className={`${revRating >= s ? 'text-gold' : 'text-border-deep'} hover:scale-110 transition-transform`}
-                                    >
-                                      ★
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                              <textarea 
-                                value={revComment}
-                                onChange={(e) => setRevComment(e.target.value)}
-                                className="w-full bg-cream border border-border-warm p-6 text-sm font-sans text-ink focus:outline-none focus:border-brown min-h-[160px] placeholder:italic"
-                                placeholder="Share your academic or personal thoughts on this volume..."
-                              />
-                              <button 
-                                onClick={handleReviewSubmit}
-                                disabled={submitting}
-                                className="bg-espresso text-cream px-10 py-3.5 font-sans font-bold uppercase tracking-widest text-xs hover:bg-espresso-light transition-all disabled:opacity-50"
-                              >
-                                {submitting ? 'Submitting...' : 'Submit Review'}
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'reading progress' && (
-                <div className="animate-in fade-in duration-300">
-                   {!user ? (
-                    <div className="bg-parchment border border-border-warm p-20 text-center">
-                      <div className="flex justify-center mb-8 text-border-deep"><Layout size={56} /></div>
-                      <h4 className="font-serif text-3xl font-bold text-ink mb-4">Track your reading journey</h4>
-                      <p className="font-sans text-ink-muted max-w-sm mx-auto mb-10">Access your personalized dashboard to track pages read, estimate completion dates, and manage your library queue.</p>
-                      <button 
-                        onClick={() => openAuthModal('login')}
-                        className="bg-espresso text-cream px-12 py-4 font-sans font-bold uppercase tracking-widest text-sm hover:bg-espresso-light"
-                      >
-                        Sign In to Track Progress
-                      </button>
+                       </div>
                     </div>
-                  ) : (
-                    <div className="flex flex-col lg:flex-row gap-16 items-center">
-                      <div className="shrink-0">
-                         <ProgressRing percent={readingProgress} size={200} strokeWidth={8} />
-                      </div>
-                      <div className="flex-1 w-full space-y-8">
-                         <div>
-                            <h4 className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-ink-muted mb-6">Current Progress</h4>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-                              <div className="bg-parchment p-6 border border-border-warm flex flex-col justify-center">
-                                <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted mb-1">Pages Completed</span>
-                                <div className="flex items-baseline gap-2">
-                                  <span className="text-4xl font-serif font-bold text-ink">{pagesRead}</span>
-                                  <span className="text-ink-muted font-sans text-sm">/ {book.pages}</span>
-                                </div>
-                              </div>
-                              <div className="bg-parchment p-6 border border-border-warm flex flex-col justify-center">
-                                <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted mb-1">Completion Status</span>
-                                <div className="flex items-baseline gap-2">
-                                  <span className="text-4xl font-serif font-bold text-brown">{readingProgress}%</span>
-                                  <span className="text-ink-muted font-sans text-sm">Total</span>
-                                </div>
-                              </div>
-                            </div>
+                 )}
 
-                            <div className="space-y-6">
-                              <div className="space-y-3">
-                                <label className="text-[11px] font-sans font-bold uppercase tracking-widest text-ink block pl-0.5">Where are you in the book?</label>
-                                <div className="relative">
-                                  <input 
-                                    type="number" 
-                                    min="0"
-                                    max={book.pages}
-                                    value={pagesRead}
-                                    onChange={(e) => {
-                                      const val = parseInt(e.target.value) || 0;
-                                      setPagesRead(val);
-                                      setReadingProgress(Math.min(100, Math.round((val / book.pages) * 100)));
-                                    }}
-                                    className="w-full bg-cream border-2 border-border-warm px-6 py-4 text-xl font-sans font-bold focus:outline-none focus:border-brown transition-colors"
-                                  />
-                                  <span className="absolute right-6 top-1/2 -translate-y-1/2 text-xs font-sans font-bold text-ink-muted uppercase tracking-widest">
-                                    Pages Read
-                                  </span>
-                                </div>
-                                <p className="text-[11px] font-sans italic text-ink-muted leading-relaxed">
-                                  Tracked against the {book.pages}-page scholarly edition. 
-                                  {book.pages - pagesRead > 0 ? ` Approximately ${book.pages - pagesRead} pages remaining.` : " Volume completed."}
-                                </p>
-                              </div>
+                 {activeTab === 'reviews' && (
+                    <div className="animate-in fade-in duration-500 space-y-12">
+                       {/* CRITIQUE BREAKDOWN */}
+                       <div className="bg-parchment border border-border-warm p-10 flex flex-col md:flex-row gap-12 items-center">
+                          <div className="text-center md:text-left shrink-0">
+                             <div className="font-serif text-8xl font-bold text-espresso leading-none mb-1">{avgRating.toFixed(1)}</div>
+                             <div className="inline-block"><StarRating rating={avgRating} size={18} /></div>
+                             <p className="text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted mt-3">Collective Wisdom</p>
+                          </div>
+                          <div className="flex-1 w-full flex flex-col gap-3">
+                             {[5, 4, 3, 2, 1].map(s => {
+                                const count = reviews.filter(r => r.rating === s).length;
+                                const pct = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
+                                return (
+                                   <div key={s} className="flex items-center gap-4 group">
+                                      <span className="text-[10px] font-sans font-bold text-ink-muted w-4">{s}★</span>
+                                      <div className="flex-1 h-1.5 bg-border-warm relative">
+                                         <div className="h-full bg-gold transition-all duration-700" style={{ width: `${pct}%` }} />
+                                      </div>
+                                      <span className="text-[9px] font-mono text-ink-muted/60 w-8">{Math.round(pct)}%</span>
+                                   </div>
+                                )
+                             })}
+                          </div>
+                       </div>
 
-                              <button 
-                                onClick={handleSaveProgress}
-                                className="w-full md:w-auto bg-espresso text-cream px-12 py-4 font-sans font-bold uppercase tracking-[0.2em] text-xs hover:bg-espresso-light transition-all shadow-lg flex items-center justify-center gap-3"
-                              >
-                                Commit to Journal
-                              </button>
-                            </div>
-                         </div>
-                      </div>
+                       {/* WRITE CRITIQUE */}
+                       <div className="bg-cream border-2 border-dashed border-border-warm p-10">
+                          {!user ? (
+                             <div className="text-center py-6">
+                                <Lock size={32} className="mx-auto text-border-deep mb-4" />
+                                <h4 className="font-serif text-2xl font-bold text-ink mb-2">Publish your perspective</h4>
+                                <p className="text-sm text-ink-muted mb-8 italic">Only verified members of the collection can archival reviews.</p>
+                                <button onClick={() => openAuthModal('login')} className="bg-espresso text-cream px-10 py-3 text-[11px] font-sans font-bold uppercase tracking-widest">Sign In to Review</button>
+                             </div>
+                          ) : (
+                             reviewSubmitted ? (
+                                <div className="text-center py-6 animate-in zoom-in-95">
+                                   <CheckCircle size={40} className="mx-auto text-green-600 mb-4" />
+                                   <h4 className="font-serif text-2xl font-bold text-ink mb-2">Review Published</h4>
+                                   <p className="text-sm text-ink-muted">Your scholarship has been added to the archives.</p>
+                                </div>
+                             ) : (
+                                <div className="space-y-6">
+                                   <div className="flex items-center justify-between">
+                                      <h4 className="text-[11px] font-sans font-bold uppercase tracking-widest text-ink">New Critical Entry</h4>
+                                      <div className="flex gap-1.5">
+                                         {[1,2,3,4,5].map(s => (
+                                            <button key={s} onClick={() => setRevRating(s)} className={`text-xl transition-all ${revRating >= s ? 'text-gold' : 'text-parchment-deep'}`}>★</button>
+                                         ))}
+                                      </div>
+                                   </div>
+                                   <textarea 
+                                      value={revComment}
+                                      onChange={e => setRevComment(e.target.value)}
+                                      className="w-full bg-parchment/30 border border-border-warm p-5 h-32 focus:outline-none focus:border-brown font-serif italic text-lg"
+                                      placeholder="Share your academic critique..."
+                                   />
+                                   <button 
+                                      onClick={handleReviewSubmit}
+                                      disabled={submitting}
+                                      className="bg-espresso text-cream px-10 py-3 text-[11px] font-sans font-bold uppercase tracking-widest hover:bg-black transition-all flex items-center justify-center gap-3 ml-auto"
+                                   >
+                                      {submitting ? 'Archiving...' : 'Publish Critique'}
+                                   </button>
+                                </div>
+                             )
+                          )}
+                       </div>
+
+                       {/* REVIEW LIST */}
+                       <div className="space-y-10">
+                          {reviews.map(r => (
+                             <div key={r.id} className="relative group pl-12 border-l border-border-warm/30 py-2">
+                                <div className="absolute left-[-16px] top-4 w-8 h-8 bg-espresso text-cream flex items-center justify-center rounded-full text-[10px] font-bold ring-4 ring-cream group-hover:scale-110 transition-transform">
+                                   {r.User?.name?.[0]}
+                                </div>
+                                <div className="flex items-center gap-4 mb-3">
+                                   <h5 className="text-[13px] font-sans font-bold text-ink italic">{r.User?.name}</h5>
+                                   <span className="text-[10px] font-sans text-ink-muted font-bold opacity-50 uppercase tracking-widest">{new Date(r.created_at).toLocaleDateString()}</span>
+                                   <div className="ml-auto"><StarRating rating={r.rating} size={10} /></div>
+                                </div>
+                                <p className="font-serif text-lg leading-relaxed text-ink-soft italic group-hover:text-ink transition-colors">"{r.comment}"</p>
+                             </div>
+                          ))}
+                          {reviews.length === 0 && (
+                             <div className="py-20 text-center text-ink-muted italic border-t border-border-warm font-serif text-lg">The annals are silent on this volume.</div>
+                          )}
+                       </div>
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+                 )}
+
+                 {activeTab === 'reading journal' && (
+                    <div className="animate-in fade-in duration-500">
+                       {!user ? (
+                          <div className="bg-parchment border border-border-warm p-20 text-center">
+                             <Layout size={48} className="mx-auto text-border-deep mb-6" />
+                             <h4 className="font-serif text-3xl font-bold text-ink mb-4">Track your scholarly progress</h4>
+                             <p className="max-w-md mx-auto text-sm text-ink-muted mb-10 italic">Archival members can track reading milestones, pages completed, and project completion dates through our unified journal system.</p>
+                             <button onClick={() => openAuthModal('login')} className="bg-espresso text-cream px-12 py-4 text-[11px] font-sans font-bold uppercase tracking-widest shadow-xl">Sign In to Journal</button>
+                          </div>
+                       ) : (
+                          <div className="flex flex-col lg:flex-row gap-20 items-stretch">
+                             <div className="shrink-0 flex flex-col items-center bg-parchment border border-border-warm p-10 shadow-sm relative">
+                                <div className="absolute top-0 right-0 p-4 opacity-5"><TrendingUp size={64} /></div>
+                                <ProgressRing percent={readingProgress} size={220} strokeWidth={10} />
+                             </div>
+                             <div className="flex-1 space-y-10 py-6">
+                                <div>
+                                   <h4 className="text-[11px] font-sans font-bold uppercase tracking-widest text-ink-muted mb-8 border-b border-border-deep pb-2">Journal Statistics</h4>
+                                   <div className="grid grid-cols-2 gap-8">
+                                      <div className="bg-cream/40 p-6 border border-border-warm ring-1 ring-border-warm/50">
+                                         <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted mb-2 block">Pagination Depth</span>
+                                         <div className="flex items-baseline gap-2">
+                                            <span className="text-5xl font-serif font-bold text-ink">{pagesRead}</span>
+                                            <span className="text-ink-muted/50 font-serif text-lg">/ {book.pages}</span>
+                                         </div>
+                                      </div>
+                                      <div className="bg-cream/40 p-6 border border-border-warm ring-1 ring-border-warm/50">
+                                         <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted mb-2 block">Percentile Complete</span>
+                                         <div className="flex items-baseline gap-2">
+                                            <span className="text-5xl font-serif font-bold text-brown">{readingProgress}%</span>
+                                         </div>
+                                      </div>
+                                   </div>
+                                </div>
+
+                                <div className="space-y-6">
+                                   <div className="flex flex-col gap-3">
+                                      <label className="text-[11px] font-sans font-bold uppercase tracking-widest text-ink font-bold">Latest Read Position</label>
+                                      <div className="relative group">
+                                         <input 
+                                            type="number" 
+                                            min="0"
+                                            max={book.pages}
+                                            value={pagesRead}
+                                            onChange={e => {
+                                               const val = parseInt(e.target.value) || 0;
+                                               setPagesRead(val);
+                                               setReadingProgress(Math.min(100, Math.round((val / book.pages) * 100)));
+                                            }}
+                                            className="w-full bg-white border-2 border-border-warm px-8 py-5 text-4xl font-serif font-bold text-espresso focus:outline-none focus:border-brown transition-colors shadow-inner"
+                                         />
+                                         <div className="absolute right-8 top-1/2 -translate-y-1/2 flex flex-col items-end opacity-40 group-focus-within:opacity-100 transition-opacity">
+                                            <span className="text-[9px] font-sans font-bold uppercase tracking-widest text-brown">Pages Read</span>
+                                            <div className="text-[10px] font-mono text-ink-muted italic">Total: {book.pages}</div>
+                                         </div>
+                                      </div>
+                                   </div>
+                                   <button 
+                                      onClick={handleSaveProgress}
+                                      className="w-full py-5 bg-espresso text-cream text-[11px] font-sans font-bold uppercase tracking-[0.2em] shadow-2xl hover:bg-black transition-all active:scale-[0.98] flex items-center justify-center gap-4"
+                                   >
+                                      <Bookmark size={14} /> Commit to Permanent Journal
+                                   </button>
+                                </div>
+                             </div>
+                          </div>
+                       )}
+                    </div>
+                 )}
+              </div>
+           </div>
         </main>
       </div>
+
       <ReserveModal 
         isOpen={isReserveModalOpen}
         onClose={() => setIsReserveModalOpen(false)}

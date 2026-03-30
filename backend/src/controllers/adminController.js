@@ -1,4 +1,4 @@
-const { Book, User, Borrow, Fine, Pickup, Review, Announcement, sequelize } = require('../models')
+const { Book, User, Borrow, Fine, Review, Announcement, Branch, sequelize } = require('../models')
 const { Op } = require('sequelize')
 
 exports.getDashboardStats = async (req, res) => {
@@ -21,7 +21,7 @@ exports.getDashboardStats = async (req, res) => {
     ] = await Promise.all([
       Book.count(),
       User.count({ where: { role: 'student', status: 'active' } }),
-      Borrow.count({ where: { status: { [Op.in]: ['active', 'overdue'] } } }),
+      Borrow.count({ where: { status: 'active' } }),
       Borrow.count({ where: { status: 'overdue' } }),
       Fine.sum('amount', { where: { paid: false } }),
       Fine.sum('amount', { where: { paid: true } }),
@@ -42,7 +42,7 @@ exports.getDashboardStats = async (req, res) => {
         where: { status: 'reserved' },
         limit: 10,
         include: [
-          { model: Book, attributes: ['title'] },
+          { model: Book, attributes: ['title', 'cover_image', 'cover_bg', 'cover_accent', 'cover_text'] },
           { model: User, attributes: ['name', 'card_id'] },
           { model: Branch, attributes: ['name'] }
         ]
@@ -67,20 +67,20 @@ exports.getDashboardStats = async (req, res) => {
     ])
 
     res.json({
-      totalBooks,
-      activeMembers,
-      activeBorrows,
-      overdueCount,
+      totalBooks: totalBooks || 0,
+      activeMembers: activeMembers || 0,
+      activeBorrows: activeBorrows || 0,
+      overdueCount: overdueCount || 0,
       outstandingFines: parseFloat((outstandingFines || 0).toFixed(2)),
       collectedFines: parseFloat((collectedFines || 0).toFixed(2)),
-      pendingPickupsCount,
-      totalReviews,
+      pendingPickupsCount: pendingPickupsCount || 0,
+      totalReviews: totalReviews || 0,
       avgRating: parseFloat((avgRatingData[0]?.dataValues.avg || 0).toFixed(1)),
-      recentBorrows,
-      pendingPickups,
-      unpaidFines,
-      announcements,
-      genreStats: genreData
+      recentBorrows: recentBorrows || [],
+      pendingPickups: pendingPickups || [],
+      unpaidFines: unpaidFines || [],
+      announcements: announcements || [],
+      genreStats: genreData || []
     })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -89,7 +89,7 @@ exports.getDashboardStats = async (req, res) => {
 
 exports.getAllUsers = async (req, res) => {
   try {
-    let { status, search, page = 1, limit = 20 } = req.query
+    let { status, search, page = 1, limit = 50 } = req.query
     page = parseInt(page)
     limit = parseInt(limit)
     const offset = (page - 1) * limit
@@ -112,7 +112,6 @@ exports.getAllUsers = async (req, res) => {
       order: [['created_at', 'DESC']]
     })
 
-    // Fetch extra data for each user: active borrows and total fine
     const results = await Promise.all(rows.map(async (user) => {
       const activeBorrows = await Borrow.count({ where: { user_id: user.id, status: { [Op.in]: ['active', 'overdue'] } } })
       const totalFine = await Fine.sum('amount', { where: { user_id: user.id, paid: false } })

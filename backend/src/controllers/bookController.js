@@ -11,12 +11,18 @@ exports.getAllBooks = async (req, res) => {
 
     const where = {}
     if (search) {
-      const searchLower = search.toLowerCase()
-      where[Op.or] = [
-        sequelize.where(sequelize.fn('LOWER', sequelize.col('title')), 'LIKE', `%${searchLower}%`),
-        sequelize.where(sequelize.fn('LOWER', sequelize.col('author')), 'LIKE', `%${searchLower}%`),
-        { isbn: { [Op.like]: `%${search}%` } }
-      ]
+      const searchTerms = search.trim().split(/\s+/);
+      const searchConditions = searchTerms.map(term => {
+        const termLower = term.toLowerCase();
+        return {
+          [Op.or]: [
+            sequelize.where(sequelize.fn('LOWER', sequelize.col('title')), 'LIKE', `%${termLower}%`),
+            sequelize.where(sequelize.fn('LOWER', sequelize.col('author')), 'LIKE', `%${termLower}%`),
+            { isbn: { [Op.like]: `%${term}%` } }
+          ]
+        };
+      });
+      where[Op.and] = searchConditions;
     }
 
     if (genre) where.genre = genre
@@ -35,8 +41,22 @@ exports.getAllBooks = async (req, res) => {
 
     const attributes = {
       include: [
-        [sequelize.fn('ROUND', sequelize.fn('AVG', sequelize.col('Reviews.rating')), 1), 'rating'],
-        [sequelize.fn('COUNT', sequelize.col('Reviews.id')), 'rating_count']
+        [
+          sequelize.literal(`(
+            SELECT ROUND(AVG(rating), 1)
+            FROM reviews AS Review
+            WHERE Review.book_id = Book.id
+          )`),
+          'rating'
+        ],
+        [
+          sequelize.literal(`(
+            SELECT COUNT(*)
+            FROM reviews AS Review
+            WHERE Review.book_id = Book.id
+          )`),
+          'rating_count'
+        ]
       ]
     }
 
@@ -45,14 +65,11 @@ exports.getAllBooks = async (req, res) => {
       limit,
       offset,
       order,
-      include,
       attributes,
-      group: ['Book.id'],
-      subQuery: false
+      distinct: true
     })
 
-    // Subquery with group by causes count to return an array of counts
-    const totalItems = Array.isArray(count) ? count.length : count
+    const totalItems = count
 
     res.json({
       books: rows,

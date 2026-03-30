@@ -19,7 +19,33 @@ const Borrow = sequelize.define('Borrow', {
   status: { 
     type: DataTypes.ENUM('reserved', 'active', 'returned', 'overdue', 'cancelled'), 
     defaultValue: 'reserved' 
+  },
+
+  // Extension Tracking
+  extensionStatus: { 
+    type: DataTypes.ENUM('none', 'requested', 'approved', 'rejected'), 
+    defaultValue: 'none',
+    field: 'extension_status'
+  },
+  hasExtended: { 
+    type: DataTypes.BOOLEAN, 
+    defaultValue: false,
+    field: 'has_extended'
+  },
+
+  // Return Tracking (Physical Handover)
+  returnStatus: { 
+    type: DataTypes.ENUM('none', 'scheduled', 'returned'), 
+    defaultValue: 'none',
+    field: 'return_status'
+  },
+  
+  adminNote: { 
+    type: DataTypes.TEXT, 
+    allowNull: true,
+    field: 'admin_note'
   }
+
 }, {
   tableName: 'borrows',
   timestamps: true,

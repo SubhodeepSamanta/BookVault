@@ -50,7 +50,7 @@ const ReserveModal = ({ isOpen, onClose, book, onReserve }) => {
     setSubmitting(true);
     try {
       await onReserve({
-        bookId: book.id,
+        bookIds: [book.id],
         branchId: selectedBranch,
         pickupDate: selectedDate,
         pickupTime: selectedTime

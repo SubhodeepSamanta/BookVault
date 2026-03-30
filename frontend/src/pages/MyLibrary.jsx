@@ -117,7 +117,7 @@ const MyLibrary = () => {
     );
   }
 
-  const activeLoans = borrows.filter(b => !b.returned_at);
+  const activeLoans = borrows.filter(b => b.status === 'active' || b.status === 'overdue');
   const filteredLoans = activeLoans.filter(loan => {
     if (loanFilter === 'All') return true;
     return loan.status.toLowerCase() === loanFilter.toLowerCase();
@@ -267,12 +267,12 @@ const MyLibrary = () => {
                          <div className="flex flex-wrap gap-x-8 gap-y-2 mb-4">
                             <div className="flex items-center gap-2">
                                <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted">Borrowed</span>
-                               <span className="text-xs font-sans text-ink">{new Date(loan.borrowed_at).toLocaleDateString()}</span>
+                               <span className="text-xs font-sans text-ink">{loan.borrowed_at ? new Date(loan.borrowed_at).toLocaleDateString() : '—'}</span>
                             </div>
                             <div className="flex items-center gap-2">
                                <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-ink-muted">Due</span>
                                <span className={`text-xs font-sans font-bold ${isOverdue ? 'text-red-600' : isDueSoon ? 'text-amber-600' : 'text-ink'}`}>
-                                 {new Date(loan.due_date).toLocaleDateString()}
+                                 {loan.due_date ? new Date(loan.due_date).toLocaleDateString() : '—'}
                                  {isOverdue && <span className="text-red-500 font-normal ml-1">({Math.abs(daysRemaining)} days overdue)</span>}
                                  {isDueSoon && <span className="text-amber-500 font-normal ml-1">(due soon)</span>}
                                </span>
@@ -383,8 +383,8 @@ const MyLibrary = () => {
                                    </div>
                                 </div>
                              </td>
-                             <td className="py-4 px-6 text-[12px] font-sans text-ink">{new Date(loan.borrowed_at).toLocaleDateString()}</td>
-                             <td className="py-4 px-6 text-[12px] font-sans text-ink">{new Date(loan.due_date).toLocaleDateString()}</td>
+                             <td className="py-4 px-6 text-[12px] font-sans text-ink">{loan.borrowed_at ? new Date(loan.borrowed_at).toLocaleDateString() : '—'}</td>
+                             <td className="py-4 px-6 text-[12px] font-sans text-ink">{loan.due_date ? new Date(loan.due_date).toLocaleDateString() : '—'}</td>
                              <td className="py-4 px-6 text-[12px] font-sans text-ink">{loan.returned_at ? new Date(loan.returned_at).toLocaleDateString() : '—'}</td>
                              <td className="py-4 px-6">
                                 <span className={`text-[9px] font-sans font-bold uppercase tracking-widest px-2 py-0.5 border ${
@@ -419,6 +419,7 @@ const MyLibrary = () => {
                     percent={progressData.length > 0 ? Math.round(progressData.reduce((a, b) => a + b.percent, 0) / progressData.length) : 0} 
                     size={110} 
                     strokeWidth={6} 
+                    variant="light"
                    />
                    <span className="text-[10px] font-sans font-bold uppercase tracking-[0.2em] text-parchment/40 mt-4">Avg. Completion</span>
                 </div>
