@@ -25,7 +25,7 @@ import BookCover from '../components/BookCover';
 import BookCard from '../components/BookCard';
 import StarRating from '../components/StarRating';
 import ProgressRing from '../components/ProgressRing';
-import ReserveModal from '../components/ReserveModal';
+import LogisticsModal from '../components/LogisticsModal';
 
 const BookDetail = () => {
   const { id } = useParams();
@@ -46,7 +46,7 @@ const BookDetail = () => {
   const [revComment, setRevComment] = useState('');
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
+  const [isLogisticsModalOpen, setIsLogisticsModalOpen] = useState(false);
 
   const fetchBookData = async () => {
     setLoading(true);
@@ -112,21 +112,21 @@ const BookDetail = () => {
 
   const isAvailable = book.available_copies > 0;
 
-  const handleReserveClick = () => {
+  const handleLogisticsClick = () => {
     if (!user) {
       openAuthModal('login');
       return;
     }
-    setIsReserveModalOpen(true);
+    setIsLogisticsModalOpen(true);
   };
 
-  const handleReserveSubmit = async (reservationData) => {
+  const handleLogisticsConfirm = async (reservationData) => {
     try {
       await api.post('/borrows', reservationData);
-      addToast(`Successfully reserved "${book.title}"!`, 'success');
+      addToast(`Successfully scheduled pickup for "${book.title}"!`, 'success');
       fetchBookData();
     } catch (err) {
-      addToast(err.response?.data?.error || 'Failed to complete reservation', 'error');
+      addToast(err.response?.data?.error || 'Failed to complete scheduling', 'error');
       throw err;
     }
   };
@@ -210,14 +210,14 @@ const BookDetail = () => {
                              ? "This volume is currently available for 14-day physical collection. Reservations are processed within 24 hours."
                              : "All physical copies are currently in active academic circulation. You may join the waitlist for the next available slot."}
                        </p>
-                       <button 
-                          onClick={handleReserveClick}
-                          disabled={!isAvailable}
-                          className={`w-full py-4 text-[11px] font-sans font-bold uppercase tracking-[0.2em] shadow-md transition-all active:scale-[0.98]
-                             ${isAvailable ? 'bg-espresso text-cream hover:bg-black' : 'bg-parchment border border-border-warm text-ink-muted cursor-not-allowed opacity-50'}`}
-                       >
-                          {isAvailable ? "Reserve for Pickup" : "Copies at Capacity"}
-                       </button>
+                        <button 
+                           onClick={handleLogisticsClick}
+                           disabled={!isAvailable}
+                           className={`w-full py-4 text-[11px] font-sans font-bold uppercase tracking-[0.2em] shadow-md transition-all active:scale-[0.98]
+                              ${isAvailable ? 'bg-espresso text-cream hover:bg-black' : 'bg-parchment border border-border-warm text-ink-muted cursor-not-allowed opacity-50'}`}
+                        >
+                           {isAvailable ? "Schedule Physical Pickup" : "Copies at Capacity"}
+                        </button>
                     </div>
                  ) : (
                     <div className="bg-cream border border-brown/20 p-4 relative overflow-hidden">
@@ -523,11 +523,12 @@ const BookDetail = () => {
         </main>
       </div>
 
-      <ReserveModal 
-        isOpen={isReserveModalOpen}
-        onClose={() => setIsReserveModalOpen(false)}
+      <LogisticsModal 
+        isOpen={isLogisticsModalOpen}
+        onClose={() => setIsLogisticsModalOpen(false)}
         book={book}
-        onReserve={handleReserveSubmit}
+        mode="pickup"
+        onConfirm={handleLogisticsConfirm}
       />
     </div>
   );

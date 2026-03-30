@@ -18,6 +18,7 @@ import BookCover from '../../components/BookCover';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useNavigate, Link } from 'react-router-dom';
+import IssueFineModal from '../../components/admin/IssueFineModal';
 
 const PickupsAndFines = () => {
   const { user } = useAuth();
@@ -28,6 +29,10 @@ const PickupsAndFines = () => {
   const [loading, setLoading] = useState(true);
   const [borrowList, setBorrowList] = useState([]);
   const [fineList, setFineList] = useState([]);
+
+  // Fine Modal State
+  const [isFineModalOpen, setIsFineModalOpen] = useState(false);
+  const [selectedBorrow, setSelectedBorrow] = useState(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -93,20 +98,26 @@ const PickupsAndFines = () => {
     }
   };
 
+  const handleIssueFine = (borrow) => {
+    setSelectedBorrow(borrow);
+    setIsFineModalOpen(true);
+  };
+
   if (!user || user.role !== 'admin') return null;
 
   const categories = {
     Pickups: borrowList.filter(b => b.status === 'reserved'),
     Extensions: borrowList.filter(b => b.extensionStatus === 'requested'),
     Returns: borrowList.filter(b => b.returnStatus === 'scheduled'),
-    Fines: fineList.filter(f => !f.paid)
+    Fines: fineList.filter(f => !f.paid),
+    History: [...borrowList].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
   };
 
   return (
     <>
       {/* COMMAND TABS */}
       <div className="flex gap-10 border-b border-border-warm mb-8 overflow-x-auto scrollbar-none">
-        {['Pickups', 'Extensions', 'Returns', 'Fines'].map(tab => (
+        {['Pickups', 'Extensions', 'Returns', 'Fines', 'History'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -115,7 +126,7 @@ const PickupsAndFines = () => {
             `}
           >
             {tab}
-            {categories[tab].length > 0 && (
+            {categories[tab] && tab !== 'History' && categories[tab].length > 0 && (
                <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[9px] font-bold ${activeTab === tab ? 'bg-brown text-cream shadow-sm' : 'bg-parchment border border-border-warm text-ink-muted'}`}>
                   {categories[tab].length}
                </span>
@@ -137,7 +148,7 @@ const PickupsAndFines = () => {
               <div className="space-y-6">
                  {categories.Pickups.length > 0 ? categories.Pickups.map(item => (
                    <div key={item.id} className="bg-white border border-border-warm overflow-hidden shadow-sm hover:border-brown transition-all group flex h-48">
-                      <Link to={`/book/${item.Book?.id}`} className="w-32 bg-espresso/5 border-r border-border-warm overflow-hidden block hover:opacity-80 transition-opacity">
+                      <Link to={`/book/${item.Book?.id}`} className="w-32 shrink-0 bg-espresso/5 border-r border-border-warm overflow-hidden block hover:opacity-80 transition-opacity">
                          <BookCover book={item.Book} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-700" />
                       </Link>
                       <div className="flex-1 p-6 flex flex-col justify-between">
@@ -254,12 +265,20 @@ const PickupsAndFines = () => {
                                <p className="text-[10px] font-sans text-ink-muted italic leading-tight">Handheld confirmation required to restore inventory copies.</p>
                             </div>
                          </div>
-                         <button 
-                           onClick={() => handleConfirmReturn(item.id)}
-                           className="w-full bg-green-600 text-white py-3.5 text-[11px] font-sans font-bold uppercase tracking-widest hover:bg-green-700 transition-all shadow-md flex items-center justify-center gap-2"
-                         >
-                            <CheckCircle size={16} /> Confirm Reception & Restock
-                         </button>
+                         <div className="flex gap-2">
+                            <button 
+                              onClick={() => handleConfirmReturn(item.id)}
+                              className="flex-[2] bg-green-600 text-white py-3.5 text-[11px] font-sans font-bold uppercase tracking-widest hover:bg-green-700 transition-all shadow-md flex items-center justify-center gap-2"
+                            >
+                               <CheckCircle size={16} /> Confirm Return
+                            </button>
+                            <button 
+                              onClick={() => handleIssueFine(item)}
+                              className="flex-1 bg-parchment border border-red-200 text-red-600 py-3.5 text-[11px] font-sans font-bold uppercase tracking-widest hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                            >
+                               <ShieldAlert size={14} /> Fine
+                            </button>
+                         </div>
                       </div>
                    </div>
                  )) : (
@@ -321,8 +340,69 @@ const PickupsAndFines = () => {
                  </table>
               </div>
            )}
+
+           {/* SECTION: AUDIT HISTORY */}
+           {activeTab === 'History' && (
+              <div className="bg-parchment border border-border-warm overflow-hidden shadow-md">
+                 <table className="w-full text-left border-collapse">
+                    <thead>
+                       <tr className="bg-espresso text-parchment/60 font-sans text-[10px] font-bold uppercase tracking-[0.2em]">
+                          <th className="px-6 py-4 border-b border-parchment/10">Activity ID & Volume</th>
+                          <th className="px-6 py-4 border-b border-parchment/10">Participant</th>
+                          <th className="px-6 py-4 border-b border-parchment/10">State</th>
+                          <th className="px-6 py-4 border-b border-parchment/10 text-right">Discretionary Actions</th>
+                       </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-warm">
+                       {categories.History.map(item => (
+                          <tr key={item.id} className="hover:bg-cream transition-colors group">
+                             <td className="px-6 py-4">
+                                <div className="flex items-center gap-4">
+                                   <div className="text-[10px] font-mono text-ink-muted bg-white border border-border-warm px-1.5 py-1">#{item.id}</div>
+                                   <div className="min-w-0">
+                                      <Link to={`/book/${item.Book?.id}`} className="text-sm font-sans font-bold text-ink hover:text-brown transition-colors truncate block">
+                                         {item.Book?.title}
+                                      </Link>
+                                      <div className="text-[10px] font-sans text-ink-muted uppercase tracking-widest font-bold">BV-SCH-{item.id}</div>
+                                   </div>
+                                </div>
+                             </td>
+                             <td className="px-6 py-4">
+                                <div className="text-[13px] font-sans font-bold text-ink">{item.User?.name}</div>
+                                <div className="text-[10px] font-mono text-ink-muted italic">{item.User?.card_id}</div>
+                             </td>
+                             <td className="px-6 py-4">
+                                <span className={`text-[9px] font-sans font-bold uppercase tracking-widest px-2 py-0.5 border ${
+                                  item.status === 'returned' ? 'bg-parchment-dark text-ink-muted border-border-warm' :
+                                  item.status === 'overdue' ? 'bg-red-50 text-red-700 border-red-200' :
+                                  'bg-green-50 text-green-700 border-green-200'
+                                }`}>
+                                   {item.status}
+                                </span>
+                             </td>
+                             <td className="px-6 py-4 text-right">
+                                <button 
+                                  onClick={() => handleIssueFine(item)}
+                                  className="text-[10px] font-sans font-bold uppercase tracking-widest text-red-600 hover:text-black transition-colors flex items-center gap-1 justify-end ml-auto"
+                                >
+                                   <ShieldAlert size={12} /> Issue Fine
+                                </button>
+                             </td>
+                          </tr>
+                       ))}
+                    </tbody>
+                 </table>
+              </div>
+           )}
         </div>
       )}
+
+      <IssueFineModal 
+        isOpen={isFineModalOpen}
+        onClose={() => setIsFineModalOpen(false)}
+        borrow={selectedBorrow}
+        onSuccess={fetchData}
+      />
     </>
   );
 };

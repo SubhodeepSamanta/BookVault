@@ -154,3 +154,54 @@ exports.waiveFine = async (req, res) => {
     res.status(500).json({ error: err.message })
   }
 }
+
+exports.issueCustomFine = async (req, res) => {
+  try {
+    const { borrowId, userId, amount, reason } = req.body
+    
+    if (!borrowId || !userId || !amount || !reason) {
+      return res.status(400).json({ error: 'Missing required fields (borrowId, userId, amount, reason).' })
+    }
+
+    let fine = await Fine.findOne({ where: { borrow_id: borrowId } })
+    const issueAmount = parseFloat(amount)
+
+    if (fine) {
+      // Append to existing fine
+      const newAmount = parseFloat(fine.amount) + issueAmount
+      const newReason = fine.reason 
+        ? `${fine.reason} | Custom: ${reason}` 
+        : `Custom: ${reason}`
+      
+      await fine.update({
+        amount: newAmount,
+        reason: newReason,
+        // But for simplicity in this library, we'll just increment.
+      })
+    } else {
+      fine = await Fine.create({
+        borrow_id: borrowId,
+        user_id: userId,
+        amount: issueAmount,
+        reason: `Custom: ${reason}`
+      })
+    }
+
+    // Notify user
+    await Notification.create({
+      user_id: userId,
+      type: 'fine_issued',
+      message: `A custom fine of ₹${issueAmount} has been issued for your return. Reason: ${reason}`,
+      ref_id: fine.id,
+      ref_type: 'fine'
+    })
+
+    res.json({ 
+      message: 'Custom fine issued successfully.', 
+      fine 
+    })
+  } catch (err) {
+    console.error('issueCustomFine Error:', err)
+    res.status(500).json({ error: err.message })
+  }
+}

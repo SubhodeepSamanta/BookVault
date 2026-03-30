@@ -14,6 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import BookCover from '../components/BookCover';
 import ProgressRing from '../components/ProgressRing';
+import LogisticsModal from '../components/LogisticsModal';
 
 const MyLibrary = () => {
   const { user, openAuthModal } = useAuth();
@@ -32,6 +33,10 @@ const MyLibrary = () => {
   const [selectedBook, setSelectedBook] = useState(null);
   const [pagesReadInput, setPagesReadInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Return Logistics Modal
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+  const [returnLoan, setReturnLoan] = useState(null);
 
   useEffect(() => {
     if (!user) { 
@@ -135,18 +140,25 @@ const MyLibrary = () => {
     return diffDays;
   };
 
-  const handleReturn = async (borrowId) => {
+  const handleReturn = (loan) => {
+    setReturnLoan(loan);
+    setIsReturnModalOpen(true);
+  };
+
+  const handleReturnConfirm = async (logisticsData) => {
     try {
-      await api.put(`/borrows/${borrowId}/schedule-return`);
-      addToast('Book return scheduled. Please drop it at the desk.', 'success');
-      // Refresh data
+      await api.put(`/borrows/${returnLoan.id}/schedule-return`, logisticsData);
+      addToast(`Restoration scheduled for "${returnLoan.Book.title}".`, 'success');
+      
+      // Refresh data to reflect scheduled status
       const res = await api.get('/borrows/my');
       setBorrows(res.data.borrows);
-      // Also refresh progress since returned books can't be updated
+      
       const progRes = await api.get('/progress/my');
       setProgressData(progRes.data.progress);
     } catch (err) {
-      addToast(err.response?.data?.error || 'Failed to return book', 'error');
+      addToast(err.response?.data?.error || 'Logistics scheduling failed', 'error');
+      throw err;
     }
   };
 
@@ -310,12 +322,18 @@ const MyLibrary = () => {
                          </div>
 
                          <div className="w-full space-y-1">
-                            <button 
-                              onClick={() => handleReturn(loan.id)}
-                              className="w-full bg-espresso text-cream text-[10px] font-sans font-bold uppercase tracking-wider py-2 hover:bg-espresso-light transition-colors"
-                            >
-                               Return Book
-                            </button>
+                            {loan.returnStatus === 'scheduled' ? (
+                              <div className="w-full bg-brown/10 text-brown border border-brown/20 text-[9px] font-sans font-bold uppercase tracking-widest py-2 text-center">
+                                Scheduled Return
+                              </div>
+                            ) : (
+                              <button 
+                                onClick={() => handleReturn(loan)}
+                                className="w-full bg-espresso text-cream text-[10px] font-sans font-bold uppercase tracking-wider py-2 hover:bg-espresso-light transition-colors"
+                              >
+                                 Return Book
+                              </button>
+                            )}
                             {isOverdue && (
                               <button 
                                 onClick={() => navigate('/fines')}
@@ -498,6 +516,14 @@ const MyLibrary = () => {
           </div>
         )}
       </main>
+
+      <LogisticsModal 
+        isOpen={isReturnModalOpen}
+        onClose={() => setIsReturnModalOpen(false)}
+        book={returnLoan?.Book}
+        mode="return"
+        onConfirm={handleReturnConfirm}
+      />
 
       {/* UPDATE PROGRESS MODAL */}
       {isModalOpen && (

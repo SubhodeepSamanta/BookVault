@@ -190,23 +190,50 @@ exports.confirmReturn = async (req, res) => {
     const borrow = await Borrow.findByPk(req.params.id, { include: [Book] })
     if (!borrow) return res.status(404).json({ error: 'Record not found' })
 
+    const returnDate = new Date()
+    const dueDate = new Date(borrow.due_date)
+    let fineApplied = false
+    let fineAmount = 0
+
+    if (returnDate > dueDate) {
+      const diffTime = Math.abs(returnDate - dueDate)
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      fineAmount = diffDays * 10
+
+      if (fineAmount > 0) {
+        await Fine.create({
+          borrow_id: borrow.id,
+          user_id: borrow.user_id,
+          amount: fineAmount,
+          reason: `Overdue return (${diffDays} days)`
+        })
+        fineApplied = true
+      }
+    }
+
     await borrow.update({
       status: 'returned',
       returnStatus: 'returned',
-      returned_at: new Date()
+      returned_at: returnDate
     })
 
     await borrow.Book.increment('available_copies', { by: 1 })
 
     await Notification.create({
       user_id: borrow.user_id,
-      type: 'return_confirmed',
-      message: `Archives updated: "${borrow.Book.title}" has been successfully returned.`,
+      type: fineApplied ? 'fine_issued' : 'return_confirmed',
+      message: fineApplied 
+        ? `"${borrow.Book.title}" returned. An overdue fine of ₹${fineAmount} has been added to your account.`
+        : `Archives updated: "${borrow.Book.title}" has been successfully returned.`,
       ref_id: borrow.id,
       ref_type: 'borrow'
     })
 
-    res.json({ message: 'Inventory restocked. Lifecycle complete.' })
+    res.json({ 
+      message: 'Inventory restocked.', 
+      fineAmount: fineApplied ? fineAmount : 0,
+      lifecycle: 'complete' 
+    })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
